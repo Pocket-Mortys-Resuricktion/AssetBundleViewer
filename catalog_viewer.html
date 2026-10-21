@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pocket Mortys — Bundle Catalog</title>
+<style>
+:root{
+  --bg:#0d1117;--surf:#161b22;--surf2:#21262d;--surf3:#2d333b;
+  --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#58a6ff;--green:#3fb950;--red:#f85149;
+  --yellow:#d29922;--purple:#bc8cff;--cyan:#39d0d8;--orange:#ffa657;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:13px;line-height:1.5}
+body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ── TOPBAR ── */
+#topbar{flex-shrink:0;background:var(--surf);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;gap:0;height:44px}
+#logo{font-size:14px;font-weight:700;color:var(--accent);padding-right:16px;border-right:1px solid var(--border);white-space:nowrap;margin-right:8px}
+.tab{background:none;border:none;color:var(--muted);padding:0 14px;height:44px;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-count{font-size:10px;background:var(--surf2);border-radius:8px;padding:1px 6px;color:var(--muted)}.tab.active .tab-count{color:var(--accent)}
+#topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+#load-btn{background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
+#file-input{display:none}
+#srv-pill{font-size:11px;padding:3px 9px;border-radius:10px;border:1px solid;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px}
+#srv-pill.off{border-color:var(--border);color:var(--muted)}
+#srv-pill.on{border-color:var(--green);color:var(--green)}
+.srv-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* ── STATS ── */
+#stats{flex-shrink:0;background:var(--surf2);border-bottom:1px solid var(--border);padding:5px 16px;display:none;gap:20px;align-items:center;flex-wrap:wrap}
+.stat{display:flex;align-items:baseline;gap:4px}
+.sv{font-size:15px;font-weight:700;color:var(--accent)}.sl{font-size:10px;color:var(--muted)}
+
+/* ── LAYOUT ── */
+#main{flex:1;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ── */
+#sidebar{width:185px;flex-shrink:0;background:var(--surf);border-right:1px solid var(--border);overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.ft{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding-bottom:3px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.ft-clear{color:var(--accent);cursor:pointer;font-weight:400;font-size:10px;text-transform:none;letter-spacing:0}
+.ft-clear:hover{text-decoration:underline}
+.fck{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;user-select:none;padding:1px 0}
+.fck input{cursor:pointer;accent-color:var(--accent)}
+.fck .cnt{margin-left:auto;font-size:10px;color:var(--muted);background:var(--surf2);border-radius:8px;padding:1px 5px}
+.cat-chip{display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:5px;cursor:pointer;font-size:11px;border:1px solid transparent;user-select:none;transition:opacity .1s}
+.cat-chip:hover{opacity:.75}.cat-chip.on{border-color:var(--accent)}
+.cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cat-chip .cnt{margin-left:auto;font-size:10px;color:var(--muted)}
+
+/* ── CONTENT PANEL ── */
+#content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#breadcrumb{flex-shrink:0;padding:0 12px;height:36px;display:none;align-items:center;gap:6px;border-bottom:1px solid var(--border);background:var(--surf2);font-size:12px}
+#breadcrumb.vis{display:flex}
+#bc-back{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:4px}
+#bc-back:hover{background:var(--surf3)}
+#bc-sep{color:var(--muted)}
+#bc-current{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+#bc-hash{font-family:"SF Mono",Consolas,monospace;font-size:10px;color:var(--muted);margin-left:6px;flex-shrink:0}
+#toolbar{flex-shrink:0;padding:7px 12px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center}
+#search{flex:1;min-width:150px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px 5px 28px;font-size:12px;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:8px center}
+#search:focus{border-color:var(--accent)}#search::placeholder{color:var(--muted)}
+.ctrl{background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 7px;font-size:11px;cursor:pointer}
+#rc{font-size:11px;color:var(--muted);white-space:nowrap;margin-left:auto}
+.tbtn{background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:4px 8px;font-size:11px;cursor:pointer}
+.tbtn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── LIST ── */
+#list-wrap{flex:1;overflow-y:auto}
+#list{width:100%}
+.list-row{display:grid;border-bottom:1px solid var(--border);cursor:pointer;transition:background .08s;user-select:none}
+.list-row:hover{background:var(--surf2)}.list-row.sel{background:#1a2840}
+.list-row.bm td:first-child::before,.list-row.bm .lc:first-child::before{content:"★ ";color:var(--yellow)}
+
+/* Bundle rows */
+.list-row.bundle-row{grid-template-columns:1fr 120px 60px 50px}
+.lc{padding:6px 10px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+.lc.ra{text-align:right;align-items:flex-end}
+.lc.center{align-items:center;justify-content:center}
+.bname{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bname.none{font-style:italic;font-weight:400;font-size:11px;color:var(--muted)}
+.bhash{font-family:"SF Mono",Consolas,monospace;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bpreview{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cat-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:8px;white-space:nowrap;font-weight:500}
+.size-txt{font-size:11px;color:var(--muted)}
+.arr{font-size:14px;color:var(--muted)}
+
+/* Asset rows (inside bundle) */
+.list-row.asset-row{grid-template-columns:1fr 130px}
+.aname{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aname.unnamed{font-style:italic;color:var(--muted);font-size:11px}
+.apid{font-family:"SF Mono",Consolas,monospace;font-size:10px;color:var(--muted)}
+.type-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:8px;background:var(--surf3);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+
+/* Flat asset rows */
+.list-row.flat-row{grid-template-columns:1fr 120px 140px 60px}
+.flat-bname{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Table header */
+#thead{display:grid;background:var(--surf2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+#thead.bundle-head{grid-template-columns:1fr 120px 60px 50px}
+#thead.asset-head{grid-template-columns:1fr 130px}
+#thead.flat-head{grid-template-columns:1fr 120px 140px 60px}
+.th{padding:5px 10px;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.th.ra{text-align:right}
+
+#empty-msg,#load-prompt{padding:40px;text-align:center;color:var(--muted)}
+#load-prompt .big{font-size:44px;margin-bottom:10px}
+#load-prompt code{background:var(--surf2);padding:2px 6px;border-radius:4px;font-size:11px}
+
+/* ── PAGINATION ── */
+#pagination{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px;border-top:1px solid var(--border)}
+.pgbtn{background:var(--surf2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:3px 9px;font-size:11px;cursor:pointer}
+.pgbtn:hover{border-color:var(--accent)}.pgbtn.on{background:var(--accent);color:#000;border-color:var(--accent)}
+.pgbtn:disabled{opacity:.3;cursor:default}
+.pginfo{font-size:11px;color:var(--muted);min-width:55px;text-align:center}
+
+/* ── PREVIEW PANEL ── */
+#preview{width:340px;flex-shrink:0;background:var(--surf);border-left:1px solid var(--border);display:none;flex-direction:column}
+#preview.open{display:flex}
+#ph{flex-shrink:0;padding:11px 12px;border-bottom:1px solid var(--border)}
+#ph-close{float:right;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;margin-left:8px;padding:0}
+#ph-close:hover{color:var(--text)}
+#ph-type{font-size:10px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em}
+#ph-name{font-size:14px;font-weight:700;color:var(--text);word-break:break-all;margin-bottom:2px}
+#ph-bundle{font-size:10px;color:var(--muted);font-family:"SF Mono",Consolas,monospace;word-break:break-all;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pmeta{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.mi{background:var(--surf2);border-radius:5px;padding:4px 7px}
+.mk{font-size:10px;color:var(--muted);margin-bottom:1px}.mv{font-size:11px;font-weight:600;word-break:break-all}
+
+/* Preview viewport */
+#pview{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+#prender{flex-shrink:0;background:var(--surf2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;min-height:60px;position:relative}
+#prender img{max-width:100%;max-height:340px;display:block;image-rendering:pixelated}
+#prender audio{width:100%;padding:10px}
+#prender pre{width:100%;max-height:340px;overflow:auto;padding:10px;font-family:"SF Mono",Consolas,monospace;font-size:10px;color:var(--cyan);white-space:pre-wrap;word-break:break-all;line-height:1.5;background:none}
+#prender .pmsg{padding:16px;text-align:center;color:var(--muted);font-size:11px;width:100%}
+#prender .pmsg.err{color:var(--red)}
+#prender .pmsg.loading::after{content:"";display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-left:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+#prender .checkers{position:absolute;inset:0;background-image:linear-gradient(45deg,#1a1a1a 25%,transparent 25%),linear-gradient(-45deg,#1a1a1a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1a1a1a 75%),linear-gradient(-45deg,transparent 75%,#1a1a1a 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0;z-index:0}
+#prender img{position:relative;z-index:1}
+
+/* Preview details / notes */
+#pbody{flex:1;padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.ds-title{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.bmark-btn{width:100%;background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:5px;font-size:11px;cursor:pointer}
+.bmark-btn:hover{border-color:var(--yellow);color:var(--yellow)}.bmark-btn.on{border-color:var(--yellow);color:var(--yellow)}
+.notes-area{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 8px;font-size:11px;resize:vertical;min-height:50px;font-family:inherit}
+.notes-area:focus{outline:none;border-color:var(--accent)}
+.notes-save{width:100%;background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:3px;font-size:11px;cursor:pointer;margin-top:3px}
+.notes-save:hover{border-color:var(--green);color:var(--green)}
+.pfield{display:flex;flex-direction:column;gap:1px}
+.pfield-row{display:flex;gap:6px;font-size:11px;padding:2px 0;border-bottom:1px solid var(--border)}
+.pfield-k{color:var(--muted);min-width:100px;flex-shrink:0;font-family:"SF Mono",Consolas,monospace;font-size:10px}
+.pfield-v{color:var(--text);word-break:break-all;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:11px}
+.jump-btn{width:100%;background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:5px 8px;font-size:11px;cursor:pointer;text-align:left}
+.jump-btn:hover{border-color:var(--accent);color:var(--accent)}
+.err-box{background:#2a0e0e;border:1px solid #4a1010;border-radius:5px;padding:7px;font-size:11px;color:var(--red);font-family:monospace;word-break:break-all}
+
+/* Server modal */
+#srv-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center}
+#srv-modal.open{display:flex}
+#srv-box{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:22px;max-width:470px;width:90%}
+#srv-box h2{font-size:15px;margin-bottom:6px;color:var(--accent)}
+#srv-box p{font-size:12px;color:var(--muted);margin-bottom:6px;line-height:1.6}
+#srv-box .cmd{display:block;background:var(--surf2);padding:7px 10px;border-radius:5px;margin:4px 0 10px;font-size:12px;color:var(--cyan);font-family:"SF Mono",Consolas,monospace}
+.modal-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 14px;font-size:12px;cursor:pointer;margin-top:4px}
+.modal-close:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="logo">🧪 PM Catalog</div>
+  <button class="tab active" id="tab-b" onclick="switchTab('bundles')">
+    📦 Bundles <span class="tab-count" id="tc-b">—</span>
+  </button>
+  <button class="tab" id="tab-a" onclick="switchTab('assets')">
+    🔍 All Assets <span class="tab-count" id="tc-a">—</span>
+  </button>
+  <div id="topbar-right">
+    <div id="srv-pill" class="off" onclick="showModal()">
+      <span class="srv-dot"></span><span id="srv-label">Server offline</span>
+    </div>
+    <button id="load-btn" onclick="document.getElementById('file-input').click()">📂 Load catalog.json</button>
+    <input type="file" id="file-input" accept=".json">
+  </div>
+</div>
+
+<!-- STATS -->
+<div id="stats">
+  <div class="stat"><span class="sv" id="s-b">0</span><span class="sl">bundles</span></div>
+  <div class="stat"><span class="sv" id="s-i">0</span><span class="sl">identified</span></div>
+  <div class="stat"><span class="sv" id="s-a">0</span><span class="sl">total assets</span></div>
+  <div class="stat"><span class="sv" id="s-c">0</span><span class="sl">categories</span></div>
+  <div class="stat"><span class="sv" id="s-bm">0</span><span class="sl">bookmarked</span></div>
+</div>
+
+<div id="main">
+  <!-- Sidebar (always visible, content changes per tab) -->
+  <div id="sidebar">
+    <!-- Bundle-only filters -->
+    <div class="fg" id="sb-bonly">
+      <div class="ft">Filters</div>
+      <label class="fck"><input type="checkbox" id="f-id" onchange="af()"> Identified only <span class="cnt" id="fc-id">0</span></label>
+      <label class="fck"><input type="checkbox" id="f-bm" onchange="af()"> ★ Bookmarked <span class="cnt" id="fc-bm">0</span></label>
+      <label class="fck"><input type="checkbox" id="f-nt" onchange="af()"> Has notes <span class="cnt" id="fc-nt">0</span></label>
+    </div>
+    <!-- Category (both tabs) -->
+    <div class="fg" id="sb-cats">
+      <div class="ft">Category <span class="ft-clear" onclick="clearCats()">clear</span></div>
+      <div id="cat-list"></div>
+    </div>
+    <!-- Type filter (both tabs) -->
+    <div class="fg">
+      <div class="ft">Asset Type <span class="ft-clear" onclick="clearTypes()">clear</span></div>
+      <div id="type-list"></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+    <!-- Breadcrumb (shown when inside a bundle) -->
+    <div id="breadcrumb">
+      <button id="bc-back" onclick="exitBundle()">← Bundles</button>
+      <span id="bc-sep">›</span>
+      <span id="bc-current"></span>
+      <span id="bc-hash"></span>
+    </div>
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+      <input type="text" id="search" placeholder="Search…" oninput="deb()">
+      <select id="sort-sel" class="ctrl" onchange="af()">
+        <option value="name">Sort: Name</option>
+        <option value="size">Sort: Size ↓</option>
+        <option value="count">Sort: Assets ↓</option>
+        <option value="cat">Sort: Category</option>
+        <option value="hash">Sort: Hash</option>
+      </select>
+      <select id="type-sel" class="ctrl" onchange="af()" style="display:none">
+        <option value="">All Types</option>
+      </select>
+      <button class="tbtn" onclick="exportF()">⬇ Export</button>
+      <span id="rc">—</span>
+    </div>
+
+    <!-- List -->
+    <div id="list-wrap">
+      <div id="load-prompt">
+        <div class="big">📦</div>
+        <p style="font-size:15px;color:var(--text);margin-bottom:8px">No catalog loaded</p>
+        <p>Click <strong>Load catalog.json</strong> to begin.</p>
+        <p style="margin-top:12px;font-size:11px">Generate with <code>catalog_builder.py</code> first.</p>
+      </div>
+      <div id="thead" class="bundle-head" style="display:none">
+        <span class="th">Name / Hash</span>
+        <span class="th">Category</span>
+        <span class="th ra">Size</span>
+        <span class="th ra">Assets</span>
+      </div>
+      <div id="list"></div>
+      <div id="empty-msg" style="display:none">No results match your search / filters.</div>
+    </div>
+    <div id="pagination"></div>
+  </div>
+
+  <!-- Preview Panel -->
+  <div id="preview">
+    <div id="ph">
+      <button id="ph-close" onclick="closePreview()">✕</button>
+      <div id="ph-type"></div>
+      <div id="ph-name"></div>
+      <div id="ph-bundle"></div>
+    </div>
+    <div id="pmeta"></div>
+    <div id="pview">
+      <div id="prender"></div>
+      <div id="pbody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Server Modal -->
+<div id="srv-modal">
+  <div id="srv-box">
+    <h2>🔌 Live Preview Server</h2>
+    <p>Run this once to enable texture/audio/data previews directly in the viewer:</p>
+    <p><strong>1. Install Flask</strong></p>
+    <span class="cmd">python -m pip install flask</span>
+    <p><strong>2. Start the server</strong></p>
+    <span class="cmd">python catalog_server.py "C:\...\Internal Asset Bundles"</span>
+    <p style="margin-top:4px">The viewer connects automatically once it's running.</p>
+    <button class="modal-close" onclick="document.getElementById('srv-modal').classList.remove('open')">Close</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ══════════════════════════════════════════════════════
+const SRV = "http://localhost:7777";
+const PG  = 80;
+
+// Preview-capable types and what to expect
+const PREV_TYPES = {
+  "Texture2D":      "image",
+  "Sprite":         "image",
+  "AudioClip":      "audio",
+  "TextAsset":      "text",
+  "MonoBehaviour":  "json",
+  "Shader":         "text",
+};
+
+const CAT_COLORS = {
+  "Texture":{"bg":"#1a3a5c","dot":"#58a6ff"},
+  "Sprite / UI":{"bg":"#1a3040","dot":"#39d0d8"},
+  "Audio":{"bg":"#1a3b2a","dot":"#3fb950"},
+  "3D Mesh":{"bg":"#3b2a1a","dot":"#ffa657"},
+  "Shader":{"bg":"#3b1a3b","dot":"#bc8cff"},
+  "Material":{"bg":"#2a1a3b","dot":"#a371f7"},
+  "Animation":{"bg":"#1a3b3a","dot":"#39d0d8"},
+  "AnimatorController":{"bg":"#1a2b3b","dot":"#79c0ff"},
+  "Text / Data":{"bg":"#2a2a1a","dot":"#d29922"},
+  "Script Data":{"bg":"#3a2a1a","dot":"#ffa657"},
+  "Scene Object":{"bg":"#1a2a3a","dot":"#58a6ff"},
+  "Font":{"bg":"#3a1a2a","dot":"#f778ba"},
+  "MonoScript":{"bg":"#2a1a2a","dot":"#bc8cff"},
+  "Unknown":{"bg":"#222","dot":"#555"},
+};
+const cc = c => CAT_COLORS[c] || {bg:"#222",dot:"#888"};
+
+let catalog   = [];     // raw catalog array
+let allAssets = [];     // flat asset list for asset tab
+let filtered  = [];     // currently displayed rows
+let page      = 1;
+let activeTab = "bundles";
+let inBundle  = null;   // bundle object when drilled in, else null
+
+// Sidebar filter state
+let activeCats  = new Set();
+let activeTypes = new Set();
+
+// Selection
+let selRow     = null;
+let selBundle  = null;  // bundle selected for bookmark/notes context
+let selAssetKey = null; // "bundlehash::path_id"
+
+let searchTimer = null;
+let serverOn    = false;
+
+let bookmarks = new Set(JSON.parse(localStorage.getItem("pm_bm") || "[]"));
+let notes     = JSON.parse(localStorage.getItem("pm_notes") || "{}");
+
+// Asset lookup by key for preview
+const assetMap = new Map(); // "bundlehash::path_id" → {bundle, asset}
+
+// ══════════════════════════════════════════════════════
+// SERVER
+// ══════════════════════════════════════════════════════
+async function chkSrv() {
+  try {
+    const r = await fetch(SRV + "/api/status", { signal: AbortSignal.timeout(1500) });
+    if (r.ok) { setSrvOn(true); return; }
+  } catch(e) {}
+  setSrvOn(false);
+}
+function setSrvOn(on) {
+  serverOn = on;
+  const pill = document.getElementById("srv-pill");
+  const lbl  = document.getElementById("srv-label");
+  pill.className = on ? "on" : "off";
+  lbl.textContent = on ? "Server online" : "Server offline";
+}
+chkSrv();
+setInterval(chkSrv, 8000);
+function showModal() { document.getElementById("srv-modal").classList.add("open"); }
+
+// ══════════════════════════════════════════════════════
+// LOAD CATALOG
+// ══════════════════════════════════════════════════════
+document.getElementById("file-input").addEventListener("change", function(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try { catalog = JSON.parse(ev.target.result); initCatalog(); }
+    catch(err) { alert("Parse error:\n" + err.message); }
+  };
+  r.readAsText(f); this.value = "";
+});
+
+function initCatalog() {
+  // Build flat asset index + map
+  allAssets = [];
+  assetMap.clear();
+  catalog.forEach(b => {
+    (b.assets || []).forEach(a => {
+      const key = b.filename + "::" + a.path_id;
+      const entry = { bundle: b, asset: a };
+      assetMap.set(key, entry);
+      allAssets.push({
+        key, name: a.name || "", type: a.type || "", path_id: a.path_id,
+        bundle: b.filename, bname: b.derived_name || "", bcat: b.category || "Unknown",
+        bsize: b.size_human || "",
+      });
+    });
+  });
+
+  // Stats
+  const id  = catalog.filter(b => b.derived_name).length;
+  const tot = catalog.reduce((s, b) => s + (b.asset_count || 0), 0);
+  const catC = {};
+  catalog.forEach(b => { const c = b.category || "Unknown"; catC[c] = (catC[c] || 0) + 1; });
+
+  setText("s-b",  catalog.length.toLocaleString());
+  setText("s-i",  id.toLocaleString());
+  setText("s-a",  tot.toLocaleString());
+  setText("s-c",  Object.keys(catC).length);
+  setText("s-bm", bookmarks.size);
+  setText("fc-id", id); setText("fc-bm", bookmarks.size); setText("fc-nt", Object.keys(notes).length);
+  setText("tc-b", catalog.length.toLocaleString());
+  setText("tc-a", tot.toLocaleString());
+  document.getElementById("stats").style.display = "flex";
+  document.getElementById("load-prompt").style.display = "none";
+  document.getElementById("thead").style.display = "grid";
+
+  // Build category chips
+  const cl = document.getElementById("cat-list"); cl.innerHTML = "";
+  Object.entries(catC).sort((a,b) => b[1]-a[1]).forEach(([cat, cnt]) => {
+    const c = cc(cat), d = document.createElement("div");
+    d.className = "cat-chip"; d.style.background = c.bg; d.dataset.cat = cat;
+    d.innerHTML = `<span class="cdot" style="background:${c.dot}"></span>${esc(cat)}<span class="cnt">${cnt}</span>`;
+    d.addEventListener("click", () => togCat(cat, d));
+    cl.appendChild(d);
+  });
+
+  // Build type checkboxes
+  const typeC = {};
+  catalog.forEach(b => (b.asset_types || []).forEach(t => typeC[t] = (typeC[t] || 0) + 1));
+  const tl = document.getElementById("type-list"); tl.innerHTML = "";
+  Object.entries(typeC).sort((a,b) => b[1]-a[1]).forEach(([t, cnt]) => {
+    const l = document.createElement("label"); l.className = "fck"; l.style.fontSize = "11px";
+    l.innerHTML = `<input type="checkbox" value="${esc(t)}" onchange="togType(this)"> ${esc(t)} <span class="cnt">${cnt}</span>`;
+    tl.appendChild(l);
+  });
+
+  // Build type dropdown for asset tab
+  const ts = document.getElementById("type-sel");
+  const allTypes = [...new Set(allAssets.map(a => a.type))].sort();
+  ts.innerHTML = '<option value="">All Types</option>' + allTypes.map(t => `<option>${esc(t)}</option>`).join("");
+
+  af();
+}
+
+// ══════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════
+function switchTab(t) {
+  activeTab = t; inBundle = null;
+  document.getElementById("tab-b").className  = "tab" + (t === "bundles" ? " active" : "");
+  document.getElementById("tab-a").className  = "tab" + (t === "assets"  ? " active" : "");
+  document.getElementById("sort-sel").style.display = t === "bundles" ? "" : "none";
+  document.getElementById("type-sel").style.display = t === "assets"  ? "" : "none";
+  document.getElementById("sb-bonly").style.display = t === "bundles" ? "flex" : "none";
+  document.getElementById("sb-cats").style.display  = t === "bundles" ? "flex" : "none";
+  document.getElementById("breadcrumb").classList.remove("vis");
+  document.getElementById("search").value = "";
+  document.getElementById("search").placeholder = t === "bundles"
+    ? "Search bundles — name, hash, asset name, path…"
+    : "Search assets — name, type, bundle…";
+  activeCats.clear(); activeTypes.clear();
+  document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("on"));
+  document.querySelectorAll("#type-list input").forEach(c => c.checked = false);
+  closePreview(); af();
+}
+
+// ══════════════════════════════════════════════════════
+// BUNDLE DRILL-IN
+// ══════════════════════════════════════════════════════
+function enterBundle(b) {
+  inBundle = b; selBundle = b;
+  document.getElementById("breadcrumb").classList.add("vis");
+  setText("bc-current", b.derived_name || "(unnamed bundle)");
+  setText("bc-hash", b.filename.substring(0, 16) + "…");
+  document.getElementById("search").value = "";
+  document.getElementById("search").placeholder = "Search assets in this bundle…";
+  // Sidebar: hide bundle-only filters when inside a bundle
+  document.getElementById("sb-bonly").style.display = "none";
+  document.getElementById("sb-cats").style.display  = "none";
+  af();
+}
+
+function exitBundle() {
+  inBundle = null; selBundle = null;
+  document.getElementById("breadcrumb").classList.remove("vis");
+  document.getElementById("search").value = "";
+  document.getElementById("search").placeholder = "Search bundles — name, hash, asset name, path…";
+  document.getElementById("sb-bonly").style.display = "flex";
+  document.getElementById("sb-cats").style.display  = "flex";
+  closePreview(); af();
+}
+
+// ══════════════════════════════════════════════════════
+// FILTERS
+// ══════════════════════════════════════════════════════
+function deb() { clearTimeout(searchTimer); searchTimer = setTimeout(af, 180); }
+function togCat(c, chip) {
+  if (activeCats.has(c)) { activeCats.delete(c); chip.classList.remove("on"); }
+  else { activeCats.add(c); chip.classList.add("on"); }
+  af();
+}
+function clearCats() { activeCats.clear(); document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("on")); af(); }
+function togType(cb) { if (cb.checked) activeTypes.add(cb.value); else activeTypes.delete(cb.value); af(); }
+function clearTypes() { activeTypes.clear(); document.querySelectorAll("#type-list input").forEach(c => c.checked = false); af(); }
+
+function af() {
+  if (!catalog.length) return;
+  const q  = document.getElementById("search").value.toLowerCase().trim();
+  const sk = document.getElementById("sort-sel").value;
+  const tk = document.getElementById("type-sel").value;
+
+  // ── Inside a bundle: show its assets ──────────────
+  if (inBundle) {
+    let assets = inBundle.assets || [];
+    if (q) assets = assets.filter(a => (a.name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q) || String(a.path_id).includes(q));
+    if (activeTypes.size) assets = assets.filter(a => activeTypes.has(a.type));
+    filtered = assets;
+    renderAssets(filtered);
+    setHead("asset");
+    setText("rc", `${filtered.length.toLocaleString()} assets in bundle`);
+    return;
+  }
+
+  // ── Asset tab ─────────────────────────────────────
+  if (activeTab === "assets") {
+    filtered = allAssets.filter(a => {
+      if (tk && a.type !== tk) return false;
+      if (activeTypes.size && !activeTypes.has(a.type)) return false;
+      if (activeCats.size && !activeCats.has(a.bcat)) return false;
+      if (q) {
+        const h = [a.name, a.type, a.bundle, a.bname, a.bcat].join(" ").toLowerCase();
+        if (!h.includes(q)) return false;
+      }
+      return true;
+    });
+    filtered.sort((a, b) => {
+      if (a.name && !b.name) return -1; if (!a.name && b.name) return 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    setHead("flat");
+    renderFlat(filtered);
+    setText("rc", `${filtered.length.toLocaleString()} assets`);
+    return;
+  }
+
+  // ── Bundle tab ────────────────────────────────────
+  const ido = document.getElementById("f-id").checked;
+  const bmo = document.getElementById("f-bm").checked;
+  const nto = document.getElementById("f-nt").checked;
+
+  filtered = catalog.filter(b => {
+    if (ido && !b.derived_name) return false;
+    if (bmo && !bookmarks.has(b.filename)) return false;
+    if (nto && !notes[b.filename]) return false;
+    if (activeCats.size && !activeCats.has(b.category || "Unknown")) return false;
+    if (activeTypes.size) {
+      const bt = new Set(b.asset_types || []);
+      let ok = false; for (const t of activeTypes) { if (bt.has(t)) { ok = true; break; } }
+      if (!ok) return false;
+    }
+    if (q) {
+      const h = [b.filename, b.derived_name || "", b.category || "", b.dominant_type || "",
+        ...(b.all_asset_names || []), ...(b.container_paths || []), ...(b.asset_types || [])].join(" ").toLowerCase();
+      if (!h.includes(q)) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    switch(sk) {
+      case "size":  return (b.size || 0) - (a.size || 0);
+      case "count": return (b.asset_count || 0) - (a.asset_count || 0);
+      case "cat":   return (a.category || "").localeCompare(b.category || "");
+      case "hash":  return a.filename.localeCompare(b.filename);
+      default: {
+        const an = a.derived_name || "", bn = b.derived_name || "";
+        if (an && !bn) return -1; if (!an && bn) return 1;
+        return an.localeCompare(bn) || a.filename.localeCompare(b.filename);
+      }
+    }
+  });
+  setHead("bundle");
+  renderBundles(filtered);
+  setText("rc", `${filtered.length.toLocaleString()} bundles`);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER BUNDLES
+// ══════════════════════════════════════════════════════
+function setHead(mode) {
+  const th = document.getElementById("thead"); th.style.display = "grid";
+  if (mode === "bundle") {
+    th.className = "bundle-head";
+    th.innerHTML = `<span class="th">Bundle Name  /  Hash</span><span class="th">Category</span><span class="th ra">Size</span><span class="th ra">Assets</span>`;
+  } else if (mode === "asset") {
+    th.className = "asset-head";
+    th.innerHTML = `<span class="th">Asset Name</span><span class="th">Type</span>`;
+  } else {
+    th.className = "flat-head";
+    th.innerHTML = `<span class="th">Asset Name</span><span class="th">Type</span><span class="th">Bundle</span><span class="th ra">Size</span>`;
+  }
+}
+
+function renderBundles(list) {
+  const start = (page - 1) * PG;
+  const slice = list.slice(start, start + PG);
+  document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
+  const el = document.getElementById("list"); el.innerHTML = "";
+  slice.forEach(b => {
+    const row  = document.createElement("div");
+    const c    = cc(b.category || "Unknown");
+    const prev = (b.all_asset_names || []).slice(0, 6).join("  ·  ");
+    row.className = "list-row bundle-row" + (bookmarks.has(b.filename) ? " bm" : "") + (selBundle === b ? " sel" : "");
+    row.dataset.hash = b.filename;
+    row.innerHTML = `
+      <div class="lc">
+        <span class="bname ${b.derived_name ? "" : "none"}">${b.derived_name ? esc(b.derived_name) : "(unnamed)"}</span>
+        <span class="bhash">${esc(b.filename)}</span>
+        <span class="bpreview">${esc(prev)}</span>
+      </div>
+      <div class="lc center"><span class="cat-badge" style="background:${c.bg};color:${c.dot}">${esc(b.category || "Unknown")}</span></div>
+      <div class="lc ra"><span class="size-txt">${esc(b.size_human || "?")}</span></div>
+      <div class="lc ra center"><span class="size-txt">${b.asset_count || 0}</span></div>
+    `;
+    row.addEventListener("click", () => { selBundle = b; enterBundle(b); });
+    el.appendChild(row);
+  });
+  renderPag(list.length);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER ASSETS (inside a bundle)
+// ══════════════════════════════════════════════════════
+function renderAssets(assets) {
+  const start = (page - 1) * PG;
+  const slice = assets.slice(start, start + PG);
+  document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
+  const el = document.getElementById("list"); el.innerHTML = "";
+  slice.forEach(a => {
+    const key = inBundle.filename + "::" + a.path_id;
+    const row = document.createElement("div");
+    row.className = "list-row asset-row" + (selAssetKey === key ? " sel" : "");
+    row.dataset.key = key;
+
+    row.innerHTML = `
+      <div class="lc">
+        <span class="aname ${a.name ? "" : "unnamed"}">${a.name ? esc(a.name) : "(unnamed)"}</span>
+        <span class="apid">path_id: ${a.path_id}</span>
+      </div>
+      <div class="lc center"><span class="type-badge">${esc(a.type)}</span></div>
+    `;
+
+    // Always auto-preview on click — server on = fetch, server off = show type info
+    row.addEventListener("click", () => selectAsset(key, row, true));
+
+    el.appendChild(row);
+  });
+  renderPag(assets.length);
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER FLAT ASSETS (asset tab)
+// ══════════════════════════════════════════════════════
+function renderFlat(list) {
+  const start = (page - 1) * PG;
+  const slice = list.slice(start, start + PG);
+  document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
+  const el = document.getElementById("list"); el.innerHTML = "";
+  slice.forEach(a => {
+    const row = document.createElement("div");
+    row.className = "list-row flat-row" + (selAssetKey === a.key ? " sel" : "");
+    row.dataset.key = a.key;
+    const c = cc(a.bcat);
+    row.innerHTML = `
+      <div class="lc">
+        <span class="aname ${a.name ? "" : "unnamed"}">${a.name ? esc(a.name) : "(unnamed)"}</span>
+      </div>
+      <div class="lc center"><span class="type-badge">${esc(a.type)}</span></div>
+      <div class="lc">
+        <span class="flat-bname">${a.bname ? esc(a.bname) : `<span style="font-style:italic;color:var(--surf3)">unnamed bundle</span>`}</span>
+        <span class="apid">${esc(a.bundle)}</span>
+      </div>
+      <div class="lc ra"><span class="size-txt">${esc(a.bsize)}</span></div>
+    `;
+    row.addEventListener("click", () => selectAsset(a.key, row, PREV_TYPES[a.type] && serverOn));
+    el.appendChild(row);
+  });
+  renderPag(list.length);
+}
+
+// ══════════════════════════════════════════════════════
+// SELECT & PREVIEW ASSET
+// ══════════════════════════════════════════════════════
+function selectAsset(key, row, doPreview = false) {
+  // Update selection highlight
+  if (selRow) selRow.classList.remove("sel");
+  // Also update old eye-btn active state
+  if (selRow) { const old = selRow.querySelector(".eye-btn"); if (old) old.classList.remove("active"); }
+  row.classList.add("sel");
+  const eyeBtn = row.querySelector(".eye-btn");
+  if (eyeBtn) eyeBtn.classList.add("active");
+  selRow = row; selAssetKey = key;
+
+  const entry = assetMap.get(key);
+  if (!entry) return;
+  const { bundle: b, asset: a } = entry;
+  selBundle = b;
+
+  // Open preview panel
+  openPreview(b, a, doPreview);
+}
+
+function openPreview(b, a, doFetch = false) {
+  document.getElementById("preview").classList.add("open");
+  const c = cc(b.category || "Unknown");
+
+  setText("ph-type", a.type);
+  setText("ph-name", a.name || "(unnamed asset)");
+  document.getElementById("ph-name").style.color = a.name ? "var(--text)" : "var(--muted)";
+  document.getElementById("ph-bundle").textContent = b.filename;
+
+  // Meta grid
+  document.getElementById("pmeta").innerHTML = `
+    <div class="mi"><div class="mk">Asset Type</div><div class="mv">${esc(a.type)}</div></div>
+    <div class="mi"><div class="mk">Path ID</div><div class="mv">${a.path_id}</div></div>
+    <div class="mi"><div class="mk">Bundle</div><div class="mv" style="color:${c.dot}">${esc(b.derived_name || "(unnamed)")}</div></div>
+    <div class="mi"><div class="mk">Category</div><div class="mv">${esc(b.category || "Unknown")}</div></div>
+    <div class="mi"><div class="mk">Bundle Size</div><div class="mv">${esc(b.size_human || "?")}</div></div>
+    <div class="mi"><div class="mk">Bundle Assets</div><div class="mv">${b.asset_count || 0}</div></div>
+  `;
+
+  // Body: bookmark, notes, context
+  const isBm = bookmarks.has(b.filename);
+  const inBundleView = !!inBundle;
+  let body = `
+    <button class="bmark-btn ${isBm ? "on" : ""}" id="bmark-btn" onclick="toggleBm()">
+      ${isBm ? "★ Bundle Bookmarked" : "☆ Bookmark Bundle"}
+    </button>
+    <div>
+      <div class="ds-title">Modder Notes (on bundle)</div>
+      <textarea class="notes-area" id="d-notes" placeholder="Notes on this bundle…">${notes[b.filename] || ""}</textarea>
+      <button class="notes-save" onclick="saveNote()">Save Note</button>
+    </div>
+  `;
+
+  // Jump button when in asset tab
+  if (!inBundleView) {
+    body += `<button class="jump-btn" onclick="jumpToBundle('${esc(b.filename)}')">📦 Open bundle in Bundle Browser</button>`;
+  }
+
+  // Other assets of same type in this bundle
+  const sameType = (b.assets || []).filter(x => x.type === a.type && x.path_id !== a.path_id);
+  if (sameType.length > 0) {
+    body += `<div><div class="ds-title">Other ${esc(a.type)} in this bundle (${sameType.length})</div>`;
+    sameType.slice(0, 30).forEach(x => {
+      body += `<div class="pfield-row"><span class="pfield-k">${x.name ? esc(x.name) : `path_id:${x.path_id}`}</span></div>`;
+    });
+    if (sameType.length > 30) body += `<div style="font-size:10px;color:var(--muted);padding:2px 0">…and ${sameType.length - 30} more</div>`;
+    body += `</div>`;
+  }
+
+  document.getElementById("pbody").innerHTML = body;
+
+  // Render area
+  const canPrev = !!PREV_TYPES[a.type];
+  const prender = document.getElementById("prender");
+
+  if (!canPrev) {
+    // Non-previewable: show type-specific info
+    prender.innerHTML = renderTypeInfo(a);
+  } else if (doFetch && serverOn) {
+    fetchPreview(b.filename, a, prender);
+  } else if (canPrev && serverOn) {
+    prender.innerHTML = `<div class="pmsg">Click 👁 to load preview</div>`;
+  } else if (canPrev && !serverOn) {
+    prender.innerHTML = `<div class="pmsg"><button class="tbtn" onclick="showModal()" style="margin:0 auto">🔌 Start preview server</button></div>`;
+  }
+}
+
+// Type-specific display for non-previewable types
+function renderTypeInfo(a) {
+  const icons = {
+    "Mesh":"🧊","MeshFilter":"🧊","SkinnedMeshRenderer":"🧊","MeshRenderer":"🧊",
+    "AnimationClip":"🎬","Animator":"🎬","AnimatorController":"🎬","AnimatorOverrideController":"🎬",
+    "Material":"🎨","GameObject":"📦","Transform":"↔️","BoxCollider":"📐","SphereCollider":"📐",
+    "Camera":"📷","Light":"💡","ParticleSystem":"✨","Font":"🔤",
+    "NavMeshData":"🗺️","PhysicMaterial":"⚙️","LightingDataAsset":"☀️",
+    "BuildSettings":"⚙️","PlayerSettings":"⚙️","AssetBundle":"📦",
+    "MonoBehaviour":"📝","MonoScript":"📝","ScriptableObject":"📝",
+  };
+  const icon = icons[a.type] || "📄";
+  const desc = {
+    "Mesh":"3D geometry data — use AssetStudio or Blender to view",
+    "MeshFilter":"References a Mesh component","MeshRenderer":"Renders a mesh with a material",
+    "SkinnedMeshRenderer":"Animated mesh renderer","AnimationClip":"Animation keyframe data",
+    "AnimatorController":"State machine for animations","Material":"Shader + texture assignments",
+    "GameObject":"Scene object hierarchy node","Transform":"Position/rotation/scale data",
+    "Font":"Font atlas texture + metrics","Camera":"Camera settings","Light":"Light component",
+    "ParticleSystem":"Particle effect settings","MonoBehaviour":"Custom C# component data",
+    "MonoScript":"Compiled script reference","ScriptableObject":"Serialized data asset",
+    "BoxCollider":"Box collision shape","SphereCollider":"Sphere collision shape",
+  }[a.type] || `${a.type} — no visual representation`;
+  return `<div class="pmsg">${icon}<br><span style="font-size:12px;font-weight:600;color:var(--text)">${esc(a.type)}</span><br><span style="font-size:11px">${esc(desc)}</span></div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// FETCH PREVIEW FROM SERVER
+// ══════════════════════════════════════════════════════
+async function fetchPreview(bundleHash, asset, prender) {
+  prender.innerHTML = `<div class="pmsg loading">Loading</div>`;
+
+  const params = new URLSearchParams({
+    bundle: bundleHash, type: asset.type,
+    name: asset.name || "", path_id: asset.path_id
+  });
+
+  try {
+    const resp = await fetch(`${SRV}/api/preview?${params}`);
+    const mime = resp.headers.get("Content-Type") || "";
+
+    if (!resp.ok) {
+      const j = await resp.json().catch(() => ({ error: "Unknown error" }));
+      prender.innerHTML = `<div class="pmsg err">❌ ${esc(j.error || "Preview failed")}</div>`;
+      return;
+    }
+
+    if (mime.startsWith("image/")) {
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      prender.innerHTML = `<div class="checkers"></div><img src="${url}" alt="${esc(asset.name || asset.type)}">`;
+    } else if (mime.startsWith("audio/")) {
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      prender.innerHTML = `<audio controls autoplay><source src="${url}" type="${mime}">Your browser doesn't support audio.</audio>`;
+    } else {
+      const text = await resp.text();
+      // Try to pretty-print JSON
+      let display = text;
+      try { display = JSON.stringify(JSON.parse(text), null, 2); } catch(e) {}
+      prender.innerHTML = `<pre>${esc(display.substring(0, 12000))}${display.length > 12000 ? "\n…truncated" : ""}</pre>`;
+    }
+  } catch(e) {
+    prender.innerHTML = `<div class="pmsg err">❌ Request failed: ${esc(e.message)}</div>`;
+  }
+}
+
+function closePreview() {
+  document.getElementById("preview").classList.remove("open");
+  if (selRow) { selRow.classList.remove("sel"); const eb = selRow.querySelector(".eye-btn"); if (eb) eb.classList.remove("active"); selRow = null; }
+  selAssetKey = null;
+  // Stop audio
+  const au = document.querySelector("#prender audio"); if (au) { au.pause(); au.src = ""; }
+}
+
+// ══════════════════════════════════════════════════════
+// JUMP TO BUNDLE
+// ══════════════════════════════════════════════════════
+function jumpToBundle(hash) {
+  switchTab("bundles");
+  document.getElementById("search").value = hash;
+  deb();
+  setTimeout(() => {
+    const row = document.querySelector(`.bundle-row[data-hash="${hash}"]`);
+    if (row) { row.scrollIntoView({ block: "center" }); row.click(); }
+  }, 350);
+}
+
+// ══════════════════════════════════════════════════════
+// BOOKMARK & NOTES
+// ══════════════════════════════════════════════════════
+function toggleBm() {
+  if (!selBundle) return;
+  const fn = selBundle.filename;
+  if (bookmarks.has(fn)) bookmarks.delete(fn); else bookmarks.add(fn);
+  localStorage.setItem("pm_bm", JSON.stringify([...bookmarks]));
+  setText("s-bm", bookmarks.size); setText("fc-bm", bookmarks.size);
+  const btn = document.getElementById("bmark-btn");
+  if (btn) { const on = bookmarks.has(fn); btn.textContent = on ? "★ Bundle Bookmarked" : "☆ Bookmark Bundle"; btn.className = "bmark-btn" + (on ? " on" : ""); }
+  // Refresh row class
+  const row = document.querySelector(`.bundle-row[data-hash="${fn}"]`);
+  if (row) { if (bookmarks.has(fn)) row.classList.add("bm"); else row.classList.remove("bm"); }
+}
+
+function saveNote() {
+  if (!selBundle) return;
+  const fn = selBundle.filename;
+  const txt = document.getElementById("d-notes").value.trim();
+  if (txt) notes[fn] = txt; else delete notes[fn];
+  localStorage.setItem("pm_notes", JSON.stringify(notes));
+  setText("fc-nt", Object.keys(notes).length);
+  const btn = document.querySelector(".notes-save"); if (!btn) return;
+  btn.textContent = "✓ Saved"; btn.style.color = "var(--green)";
+  setTimeout(() => { btn.textContent = "Save Note"; btn.style.color = ""; }, 1500);
+}
+
+// ══════════════════════════════════════════════════════
+// PAGINATION
+// ══════════════════════════════════════════════════════
+function renderPag(total) {
+  const pages = Math.ceil(total / PG);
+  const pag   = document.getElementById("pagination"); pag.innerHTML = "";
+  if (pages <= 1) return;
+  const prev = document.createElement("button"); prev.className = "pgbtn"; prev.textContent = "← Prev"; prev.disabled = page === 1;
+  prev.onclick = () => { page--; af(); }; pag.appendChild(prev);
+  const s = Math.max(1, page - 3), e = Math.min(pages, s + 6);
+  for (let p = s; p <= e; p++) {
+    const btn = document.createElement("button"); btn.className = "pgbtn" + (p === page ? " on" : ""); btn.textContent = p;
+    const pp = p; btn.onclick = () => { page = pp; af(); }; pag.appendChild(btn);
+  }
+  const inf = document.createElement("span"); inf.className = "pginfo"; inf.textContent = `${page}/${pages}`; pag.appendChild(inf);
+  const next = document.createElement("button"); next.className = "pgbtn"; next.textContent = "Next →"; next.disabled = page === pages;
+  next.onclick = () => { page++; af(); }; pag.appendChild(next);
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════════
+function exportF() {
+  if (!filtered.length) return;
+  const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = activeTab === "bundles" ? "pm_bundles_export.json" : "pm_assets_export.json";
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+</script>
+</body>
+</html>
