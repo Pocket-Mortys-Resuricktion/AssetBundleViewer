@@ -58,7 +58,9 @@ python -m pip install unitypy flask
 
 ### 1. Get the bundles
 
-You need your own copy of the game's asset bundles, typically a folder named `Internal Asset Bundles` extracted from the APK or downloaded game data. **This repository does not distribute game assets.**
+You need your own copy of the game's asset bundles, the internal asset bundles are inside a folder named something like `assets` extracted from the APK or downloaded game data. To get the external asset bundles, you would've needed to have installed Pocket Mortys and played before the game shutdown. If you did go to Android/Data/com.turner.pocketmorties/files/UnityCache/Shared and all those folders are the external asset bundles. You'd want to import the files named `__Data`. **This repository does not distribute game assets.**...
+
+Or you can go to the AssetBundles folder on this repo and download them all there. 
 
 ### 2. Build the catalog (optional if using the prebuilt one)
 
