@@ -14,7 +14,7 @@ Built as part of a fan preservation effort for the game.
 | `catalog_builder.py` | Scans a directory of bundles with [UnityPy](https://github.com/K0lb3/UnityPy) and writes `catalog.json`. |
 | `catalog_viewer.html` | Standalone browser UI for searching, filtering, bookmarking, and annotating the catalog. No build step. |
 | `catalog_server.py` | Optional local Flask server that extracts assets from the bundles on demand so the viewer can preview them. |
-| `catalog.json` | Prebuilt catalog output (see [Prebuilt catalog](#prebuilt-catalog)). |
+| `catalog.json` | Catalog output. |
 
 ## Features
 
@@ -58,7 +58,7 @@ python -m pip install unitypy flask
 
 ### 1. Get the bundles
 
-You need your own copy of the game's asset bundles, the internal asset bundles are inside a folder named something like `assets` extracted from the APK or downloaded game data. To get the external asset bundles, you would've needed to have installed Pocket Mortys and played before the game shutdown. If you did go to Android/Data/com.turner.pocketmorties/files/UnityCache/Shared and all those folders are the external asset bundles. You'd want to import the files named `__Data`. **This repository does not distribute game assets.**...
+You need your own copy of the game's asset bundles, the internal asset bundles are inside the following folder path: `BaseAPKDirectory\assets\bin\Data`, extract the APK to find them. To get the external asset bundles, you would've needed to have installed Pocket Mortys and played before the game shutdown. If you did go to Android/Data/com.turner.pocketmorties/files/UnityCache/Shared and all those folders are the external asset bundles. You'd want to import the files named `__Data`. **This repository does not distribute game assets.**...
 
 Or you can go to the AssetBundles folder on this repo and download them all there. 
 
@@ -93,16 +93,6 @@ The server listens on `http://localhost:7777`. The viewer detects it automatical
 If you start the server without a path, you can set the bundle directory afterward through the viewer.
 
 Keep `catalog.json` next to `catalog_server.py` or run the server from the folder containing it; the server also loads it on startup.
-
-## Prebuilt catalog
-
-`catalog.json` in this repo was generated from Android/iOS bundle set `1011`:
-
-- 4,026 bundles, all valid
-- 141,606 assets
-- about 1.09 GB of source bundles
-
-You can use it with the viewer directly without running the builder. Previews still require the bundles on disk and the server running.
 
 ## API
 
