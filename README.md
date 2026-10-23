@@ -14,7 +14,7 @@ Built as part of a fan preservation effort for the game.
 | `catalog_builder.py` | Scans a directory of bundles with [UnityPy](https://github.com/K0lb3/UnityPy) and writes `catalog.json`. |
 | `catalog_viewer.html` | Standalone browser UI for searching, filtering, bookmarking, and annotating the catalog. No build step. |
 | `catalog_server.py` | Optional local Flask server that extracts assets from the bundles on demand so the viewer can preview them. |
-| `catalog.json` | Catalog output. |
+| `catalog.json` | Catalog output with info on all asset bundles.
 
 ## Features
 
