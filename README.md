@@ -20,7 +20,7 @@ A fan preservation project for a game that is no longer available.
 ## The online version
 
 ```
-https://<owner>.github.io/<repository>/
+https://pocket-mortys-resuricktion.github.io/AssetBundleViewer/
 ```
 
 Every sprite, texture, sound and data file is decoded ahead of time and
