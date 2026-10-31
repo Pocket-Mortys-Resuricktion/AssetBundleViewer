@@ -1,0 +1,103 @@
+name: Publish the online viewer
+
+# Builds the browsable, downloadable copy of every asset and puts it on
+# GitHub Pages, so anyone can look through the game's content and save what
+# they want without installing anything.
+#
+# Reading a Unity bundle needs compiled code that cannot run in a browser, so
+# the assets are decoded here instead and published as ordinary files.
+#
+# Turn it on once: Settings -> Pages -> Build and deployment -> Source:
+# "GitHub Actions". The site then lives at
+# https://<owner>.github.io/<repository>/
+#
+# This is deliberately manual. It checks out about a gigabyte of bundles and
+# renders 75,000 files, which is not something to do on every push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      types:
+        description: "Asset types to publish (blank = the usual set)"
+        required: false
+        default: ""
+      rebuild_catalog:
+        description: "Rescan the bundles instead of using the committed catalog"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Rebuild the catalog
+        if: ${{ inputs.rebuild_catalog }}
+        run: python catalog_builder.py AssetBundles -o catalog.json --fresh
+
+      - name: Render every asset
+        run: |
+          if [ -n "${{ inputs.types }}" ]; then
+            python tools/prerender.py AssetBundles -o site --only "${{ inputs.types }}"
+          else
+            python tools/prerender.py AssetBundles -o site
+          fi
+
+      - name: Size report
+        run: |
+          echo "### Published site" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          du -sh site >> "$GITHUB_STEP_SUMMARY"
+          find site -type f | wc -l | xargs echo "files:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # GitHub Pages publishes up to 1 GB. Fail loudly rather than
+          # discovering it at deploy time.
+          size=$(du -sm site | cut -f1)
+          echo "site is ${size} MB"
+          if [ "$size" -gt 1000 ]; then
+            echo "::error::The site is ${size} MB, over the 1 GB Pages limit."
+            echo "::error::Publish fewer types, e.g. types: Texture2D,Sprite,AudioClip,TextAsset,MonoBehaviour"
+            exit 1
+          fi
+          if [ "$size" -gt 900 ]; then
+            echo "::warning::The site is ${size} MB, close to the 1 GB Pages limit."
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

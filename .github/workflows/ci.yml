@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['AssetBundles/**', 'README.md', 'LICENSE']
+  pull_request:
+    paths-ignore: ['AssetBundles/**', 'README.md', 'LICENSE']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.9', '3.13']
+
+    steps:
+      # The repository carries a gigabyte of asset bundles. Fetch only the
+      # code plus the handful of small bundles the tests exercise.
+      - name: Checkout (code and test fixtures only)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            tests
+            .github
+            AssetBundles/support_icon-7bb3a2229d74e4049a87a7d52f859adb.assetbundle
+            AssetBundles/AdsConfigInfo-f7b81504443f44f5aaf4cecb2277b36d.assetbundle
+            AssetBundles/ShadowCharacter-07e11ae5121e3438692f32845f15bb50.assetbundle
+            AssetBundles/sactx-0-256x512-ETC2-WorldDefault-b4aaf91f-a56446fe408b44ef3a6a93f8b8e062a3.assetbundle
+            AssetBundles/v2.36.0.assetbundle
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Which fixtures are present
+        shell: bash
+        run: ls -la AssetBundles 2>/dev/null || echo "no AssetBundles (tests will skip)"
+
+      - name: Tests
+        run: python -m pytest tests -q
+
+      - name: Build a catalog from the fixtures
+        run: python catalog_builder.py AssetBundles -o /tmp/catalog.json --fresh -j 2
+        if: runner.os != 'Windows'
+
+      - name: Build a catalog from the fixtures (Windows)
+        run: python catalog_builder.py AssetBundles -o catalog-test.json --fresh -j 2
+        if: runner.os == 'Windows'
+
+      - name: Server starts and answers
+        shell: bash
+        run: |
+          python catalog_server.py AssetBundles --no-browser --no-token --port 7788 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:7788/api/status > status.json; then break; fi
+            sleep 1
+          done
+          cat status.json
+          python - <<'PY'
+          import json
+          s = json.load(open("status.json"))
+          assert s["ok"] and s["bundle_count"] > 0, s
+          print("server OK:", s["bundle_count"], "bundles")
+          PY
+          curl -fsS "http://127.0.0.1:7788/" -o index.html
+          grep -q "PM Catalog" index.html
+
+  lint:
+    name: Syntax and style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            tests
+            .github
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install ruff
+      - name: Compile every module
+        run: python -m compileall -q bundle_io.py catalog_builder.py catalog_server.py tests
+      - name: Ruff
+        run: ruff check --select E9,F63,F7,F82,F401,F841 .

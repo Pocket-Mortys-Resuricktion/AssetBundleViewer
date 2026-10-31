@@ -1,0 +1,12 @@
+# Pocket Mortys Bundle Catalog - install with:
+#     python -m pip install -r requirements.txt
+
+UnityPy>=1.22,<2          # reads and writes the bundles
+Flask>=3.0                # the local server
+Pillow>=10.0              # decoding and encoding textures
+
+# Texture codecs. UnityPy pulls these in, but naming them here means a plain
+# PNG export of an ASTC or ETC texture works on a fresh machine.
+texture2ddecoder>=1.0
+etcpak>=0.9
+astc-encoder-py>=0.1.10

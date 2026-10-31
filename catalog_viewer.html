@@ -59,7 +59,8 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #bc-sep{color:var(--muted)}
 #bc-current{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 #bc-hash{font-family:"SF Mono",Consolas,monospace;font-size:10px;color:var(--muted);margin-left:6px;flex-shrink:0}
-#toolbar{flex-shrink:0;padding:7px 12px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center}
+#toolbar{flex-shrink:0;padding:7px 12px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;overflow:hidden}
+#toolbar .tbtn,#toolbar .ctrl{white-space:nowrap;flex-shrink:0}
 #search{flex:1;min-width:150px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px 5px 28px;font-size:12px;outline:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:8px center}
@@ -171,6 +172,64 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #srv-box .cmd{display:block;background:var(--surf2);padding:7px 10px;border-radius:5px;margin:4px 0 10px;font-size:12px;color:var(--cyan);font-family:"SF Mono",Consolas,monospace}
 .modal-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 14px;font-size:12px;cursor:pointer;margin-top:4px}
 .modal-close:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── GRID VIEW ── */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;padding:10px 12px;overflow-y:auto;align-content:start}
+.gcell{background:var(--surf);border:1px solid var(--border);border-radius:7px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:5px;min-width:0}
+.gcell:hover{border-color:var(--accent)}
+.gcell.sel{border-color:var(--accent);background:var(--surf2)}
+.gthumb{width:100%;aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;
+  background-image:linear-gradient(45deg,#15181d 25%,transparent 25%),linear-gradient(-45deg,#15181d 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#15181d 75%),linear-gradient(-45deg,transparent 75%,#15181d 75%);
+  background-size:10px 10px;background-position:0 0,0 5px,5px -5px,-5px 0;background-color:#0a0c10}
+.gthumb img{max-width:100%;max-height:100%;image-rendering:pixelated;display:block}
+.gthumb .gicon{font-size:26px;opacity:.5}
+.gname{font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+.gsub{font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view-toggle{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;flex-shrink:0}
+.view-toggle button{background:none;border:none;color:var(--muted);padding:4px 9px;font-size:11px;cursor:pointer}
+.view-toggle button.on{background:var(--surf3);color:var(--accent)}
+
+/* ── MODE BANNER ── */
+#mode-note{flex-shrink:0;padding:6px 14px;font-size:11px;background:var(--surf2);border-bottom:1px solid var(--border);color:var(--muted);display:none;align-items:center;gap:8px}
+#mode-note.vis{display:flex}
+#mode-note a{color:var(--accent)}
+#mode-note .badge{background:var(--accent);color:#000;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700}
+.origin-tag{font-size:9px;border-radius:3px;padding:0 5px;border:1px solid;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.origin-tag.internal{color:var(--purple);border-color:var(--purple)}
+.origin-tag.external{color:var(--cyan);border-color:var(--cyan)}
+.origin-tag.custom{color:var(--yellow);border-color:var(--yellow);background:rgba(210,153,34,.12)}
+
+/* ── ACTIONS / EXPORT / REPLACE ── */
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.act-btn{background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:5px 8px;font-size:11px;cursor:pointer;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.act-btn:disabled{opacity:.4;cursor:not-allowed}
+.act-btn.primary{border-color:var(--green);color:var(--green)}
+.act-btn.primary:hover:not(:disabled){background:rgba(63,185,80,.12)}
+.act-btn.wide{grid-column:1/-1}
+.hint{font-size:10px;color:var(--muted);line-height:1.5}
+.hint.warn{color:var(--yellow)}
+.hint.err{color:var(--red)}
+.edited-tag{font-size:9px;font-weight:700;color:#000;background:var(--yellow);border-radius:3px;padding:0 4px;align-self:flex-start;letter-spacing:.04em}
+
+/* ── EDITS TRAY ── */
+#tray{position:fixed;right:14px;bottom:14px;width:330px;max-height:62vh;background:var(--surf);border:1px solid var(--yellow);border-radius:9px;display:none;flex-direction:column;z-index:60;box-shadow:0 8px 28px rgba(0,0,0,.55)}
+#tray.open{display:flex}
+#tray-head{padding:9px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--yellow)}
+#tray-head .count{margin-left:auto;font-size:10px;background:var(--surf2);border-radius:8px;padding:1px 7px;color:var(--muted);font-weight:400}
+#tray-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+#tray-body{overflow-y:auto;padding:9px 11px;display:flex;flex-direction:column;gap:9px}
+#tray-foot{padding:9px 11px;border-top:1px solid var(--border);display:flex;gap:6px;align-items:center}
+#tray-foot select{background:var(--surf2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:11px;padding:4px 6px}
+.edit-grp{border:1px solid var(--border);border-radius:6px;padding:7px 8px}
+.edit-grp .eb{font-size:11px;font-weight:600;color:var(--text);word-break:break-all;margin-bottom:4px}
+.edit-item{font-size:10px;color:var(--muted);padding:2px 0;border-top:1px solid var(--surf2)}
+.edit-item b{color:var(--cyan);font-weight:600}
+.built{border:1px solid var(--green);border-radius:6px;padding:7px 8px;font-size:10px;color:var(--muted);word-break:break-all}
+.built a{color:var(--green);text-decoration:none;font-weight:600}
+.built a:hover{text-decoration:underline}
+#tray-toggle{position:fixed;right:14px;bottom:14px;background:var(--yellow);color:#000;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;display:none;z-index:59;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+#tray-toggle.show{display:block}
 </style>
 </head>
 <body>
@@ -201,6 +260,8 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
   <div class="stat"><span class="sv" id="s-c">0</span><span class="sl">categories</span></div>
   <div class="stat"><span class="sv" id="s-bm">0</span><span class="sl">bookmarked</span></div>
 </div>
+
+<div id="mode-note"></div>
 
 <div id="main">
   <!-- Sidebar (always visible, content changes per tab) -->
@@ -247,7 +308,12 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
       <select id="type-sel" class="ctrl" onchange="af()" style="display:none">
         <option value="">All Types</option>
       </select>
-      <button class="tbtn" onclick="exportF()">⬇ Export</button>
+      <div class="view-toggle" id="view-toggle">
+        <button id="vt-list" class="on" onclick="setView('list')" title="List">☰ List</button>
+        <button id="vt-grid" onclick="setView('grid')" title="Thumbnails">▦ Grid</button>
+      </div>
+      <button class="tbtn" id="btn-zip" onclick="exportBundleZip()" style="display:none" title="Download every asset in this bundle as a zip">⬇ Export all (.zip)</button>
+      <button class="tbtn" onclick="exportF()" title="Save the rows you are looking at as JSON">⬇ Save list</button>
       <span id="rc">—</span>
     </div>
 
@@ -266,6 +332,7 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
         <span class="th ra">Assets</span>
       </div>
       <div id="list"></div>
+      <div id="grid" style="display:none"></div>
       <div id="empty-msg" style="display:none">No results match your search / filters.</div>
     </div>
     <div id="pagination"></div>
@@ -287,16 +354,37 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
   </div>
 </div>
 
+<!-- Staged edits -->
+<button id="tray-toggle" onclick="showTray()">✏️ <span id="tray-toggle-n">0</span> pending</button>
+<div id="tray">
+  <div id="tray-head">✏️ Pending replacements<span class="count" id="tray-count">0</span>
+    <button id="tray-close" onclick="hideTray()" title="Hide">✕</button>
+  </div>
+  <div id="tray-body"></div>
+  <div id="tray-foot">
+    <select id="tray-pack" title="Compression used when the bundle is written">
+      <option value="lz4">LZ4 (same as the game)</option>
+      <option value="lzma">LZMA (smallest)</option>
+      <option value="none">None (largest, fastest)</option>
+    </select>
+    <button class="act-btn primary" style="flex:1" onclick="buildEdits()">🔧 Build</button>
+    <button class="act-btn" onclick="discardEdits()" title="Throw away every pending replacement">Discard</button>
+  </div>
+</div>
+
 <!-- Server Modal -->
 <div id="srv-modal">
   <div id="srv-box">
-    <h2>🔌 Live Preview Server</h2>
-    <p>Run this once to enable texture/audio/data previews directly in the viewer:</p>
-    <p><strong>1. Install Flask</strong></p>
-    <span class="cmd">python -m pip install flask</span>
-    <p><strong>2. Start the server</strong></p>
-    <span class="cmd">python catalog_server.py "C:\...\Internal Asset Bundles"</span>
-    <p style="margin-top:4px">The viewer connects automatically once it's running.</p>
+    <h2>🔌 Local server</h2>
+    <p>The server reads the bundle files for you. Without it this page can only
+       show the catalog; with it you can preview, export and replace assets.</p>
+    <p><strong>1. Install the requirements (once)</strong></p>
+    <span class="cmd">python -m pip install -r requirements.txt</span>
+    <p><strong>2. Start it</strong></p>
+    <span class="cmd">python catalog_server.py AssetBundles</span>
+    <p>It opens <strong>http://127.0.0.1:7777</strong> by itself. Use that page
+       rather than this file on disk, and everything works with no extra setup.</p>
+    <p class="hint warn" id="srv-modal-note"></p>
     <button class="modal-close" onclick="document.getElementById('srv-modal').classList.remove('open')">Close</button>
   </div>
 </div>
@@ -305,8 +393,25 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 // ══════════════════════════════════════════════════════
 // CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
-const SRV = "http://localhost:7777";
+// When the server serves this page we talk to it on the same origin, which
+// needs no CORS and no token pasting. Opened straight from disk we fall back
+// to the default address and the server has to be started with --cors.
+const CFG = window.PM_CONFIG || {};
+const SRV = CFG.served ? "" : "http://127.0.0.1:7777";
+const TOKEN = CFG.token || "";
 const PG  = 80;
+
+function api(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers, TOKEN ? {"X-PM-Token": TOKEN} : {});
+  return fetch(SRV + path, opts);
+}
+function apiURL(path, params) {
+  const q = new URLSearchParams(params || {});
+  if (TOKEN) q.set("token", TOKEN);
+  const qs = q.toString();
+  return SRV + path + (qs ? "?" + qs : "");
+}
 
 // Preview-capable types and what to expect
 const PREV_TYPES = {
@@ -354,6 +459,13 @@ let selAssetKey = null; // "bundlehash::path_id"
 
 let searchTimer = null;
 let serverOn    = false;
+let srvInfo     = {};     // last /api/status payload
+let liveAssets  = null;   // assets read from the real file for the open bundle
+let pendingEdits = {};    // bundle filename -> {changes, will_write}
+let lastBuild   = null;   // most recent build result, shown in the tray
+let previews    = null;   // previews.json, when assets were rendered ahead of time
+let webMode     = false;  // published copy: prerendered assets, no server
+let viewMode    = "list"; // list | grid
 
 let bookmarks = new Set(JSON.parse(localStorage.getItem("pm_bm") || "[]"));
 let notes     = JSON.parse(localStorage.getItem("pm_notes") || "{}");
@@ -366,20 +478,123 @@ const assetMap = new Map(); // "bundlehash::path_id" → {bundle, asset}
 // ══════════════════════════════════════════════════════
 async function chkSrv() {
   try {
-    const r = await fetch(SRV + "/api/status", { signal: AbortSignal.timeout(1500) });
-    if (r.ok) { setSrvOn(true); return; }
+    const r = await api("/api/status", { signal: AbortSignal.timeout(2500) });
+    if (r.ok) {
+      srvInfo = await r.json();
+      setSrvOn(true);
+      mergeCustomBundles(srvInfo.extra_bundles);
+      refreshEdits();
+      return;
+    }
+    if (r.status === 403) { srvInfo = {}; setSrvOn(false, "Token rejected"); return; }
   } catch(e) {}
-  setSrvOn(false);
+  srvInfo = {}; setSrvOn(false);
 }
-function setSrvOn(on) {
+function setSrvOn(on, why) {
+  const was = serverOn;
   serverOn = on;
   const pill = document.getElementById("srv-pill");
   const lbl  = document.getElementById("srv-label");
+  if (webMode) { pill.style.display = "none"; return; }
   pill.className = on ? "on" : "off";
-  lbl.textContent = on ? "Server online" : "Server offline";
+  lbl.textContent = on
+    ? (srvInfo.bundle_count ? `Server · ${srvInfo.bundle_count.toLocaleString()} files` : "Server online")
+    : (why || "Server offline");
+  const note = document.getElementById("srv-modal-note");
+  if (note) {
+    note.textContent = on ? "" : (CFG.served
+      ? "" : "This page was opened from disk. Start the server and use the address it prints instead.");
+  }
+  if (on && !was && !catalog.length && srvInfo.catalog_len) loadServerCatalog();
+  showModeNote();
+}
+
+// Bundles sitting in the folder that the shipped catalog has never heard of
+// are yours. Show them alongside, clearly marked.
+function mergeCustomBundles(names) {
+  if (!names || !names.length || !catalog.length) return;
+  const known = new Set(catalog.map(b => b.filename));
+  const added = names.filter(fn => !known.has(fn));
+  if (!added.length) return;
+  added.forEach(fn => catalog.push({
+    filename: fn,
+    derived_name: fn.replace(/\.[^.]+$/, ""),
+    custom: true,
+    category: "Unknown",
+    asset_types: [], assets: [], all_asset_names: [], type_counts: {},
+    asset_count: 0, size: 0, size_human: "?", valid: true,
+  }));
+  initCatalog();
+}
+
+async function loadServerCatalog() {
+  try {
+    const r = await api("/api/catalog");
+    if (!r.ok) return;
+    const data = await r.json();
+    if (Array.isArray(data) && data.length) { catalog = data; initCatalog(); }
+  } catch(e) {}
 }
 chkSrv();
 setInterval(chkSrv, 8000);
+
+// The published copy ships the catalog and a folder of already-rendered
+// assets next to it. Pick both up so the page works with nothing installed.
+(async function autoLoad() {
+  if (CFG.served || location.protocol === "file:") return;
+  try {
+    const r = await fetch("previews.json", { cache: "no-cache" });
+    if (r.ok) { previews = await r.json(); webMode = true; }
+  } catch(e) {}
+  try {
+    const r = await fetch("catalog.json", { cache: "no-cache" });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (Array.isArray(data) && data.length && !catalog.length) {
+      catalog = data; initCatalog();
+    }
+  } catch(e) {}
+  showModeNote();
+})();
+
+// Say plainly which version this is and what it can do.
+function showModeNote() {
+  const el = document.getElementById("mode-note");
+  if (!el) return;
+  if (webMode) {
+    el.innerHTML = `<span class="badge">Online</span> Browse and download every asset.
+      Replacing assets and rebuilding bundles needs the desktop version &mdash;
+      <a href="https://github.com/Pocket-Mortys-Resuricktion/AssetBundleViewer/releases" target="_blank" rel="noopener">get it from Releases</a>.`;
+    el.classList.add("vis");
+  } else if (!CFG.served && !serverOn) {
+    el.innerHTML = `<span class="badge">Catalog only</span> Opened from disk with no server,
+      so there is nothing to preview from. Run <code>python catalog_server.py AssetBundles</code>
+      and use the address it prints.`;
+    el.classList.add("vis");
+  } else {
+    el.classList.remove("vis");
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PRERENDERED ASSET URLS (published copy)
+// ══════════════════════════════════════════════════════
+function previewInfo(b, a) {
+  if (!previews || b._i === undefined) return null;
+  const forBundle = previews.bundles[b._i];
+  return forBundle ? forBundle[String(a.path_id)] : null;
+}
+function assetURL(b, a) {
+  const info = previewInfo(b, a);
+  return info ? `assets/${b._i}/${a.path_id}.${info.e}` : null;
+}
+function thumbURL(b, a) {
+  const info = previewInfo(b, a);
+  return info && info.w ? `thumbs/${b._i}/${a.path_id}.webp` : null;
+}
+function canShow(b, a) {
+  return webMode ? !!previewInfo(b, a) : serverOn;
+}
 function showModal() { document.getElementById("srv-modal").classList.add("open"); }
 
 // ══════════════════════════════════════════════════════
@@ -399,6 +614,8 @@ function initCatalog() {
   // Build flat asset index + map
   allAssets = [];
   assetMap.clear();
+  // The position in the catalog is how a prerendered asset is addressed.
+  catalog.forEach((b, i) => { b._i = i; });
   catalog.forEach(b => {
     (b.assets || []).forEach(a => {
       const key = b.filename + "::" + a.path_id;
@@ -483,8 +700,8 @@ function switchTab(t) {
 // ══════════════════════════════════════════════════════
 // BUNDLE DRILL-IN
 // ══════════════════════════════════════════════════════
-function enterBundle(b) {
-  inBundle = b; selBundle = b;
+async function enterBundle(b) {
+  inBundle = b; selBundle = b; liveAssets = null;
   document.getElementById("breadcrumb").classList.add("vis");
   setText("bc-current", b.derived_name || "(unnamed bundle)");
   setText("bc-hash", b.filename.substring(0, 16) + "…");
@@ -493,11 +710,30 @@ function enterBundle(b) {
   // Sidebar: hide bundle-only filters when inside a bundle
   document.getElementById("sb-bonly").style.display = "none";
   document.getElementById("sb-cats").style.display  = "none";
+  document.getElementById("btn-zip").style.display = serverOn ? "" : "none";
   af();
+  if (serverOn) loadLiveAssets(b);
+}
+
+// The catalog is a snapshot. When the server is up, list what the file holds
+// right now, so path IDs, types and pending edits are always in step.
+async function loadLiveAssets(b) {
+  try {
+    const r = await api("/api/assets?" + new URLSearchParams({ bundle: b.filename }));
+    if (!r.ok) return;
+    const data = await r.json();
+    if (inBundle !== b) return;
+    liveAssets = data.assets || [];
+    b.assets = liveAssets;
+    b.asset_count = liveAssets.length;
+    liveAssets.forEach(a => assetMap.set(b.filename + "::" + a.path_id, { bundle: b, asset: a }));
+    af(true);
+  } catch(e) {}
 }
 
 function exitBundle() {
-  inBundle = null; selBundle = null;
+  inBundle = null; selBundle = null; liveAssets = null;
+  document.getElementById("btn-zip").style.display = "none";
   document.getElementById("breadcrumb").classList.remove("vis");
   document.getElementById("search").value = "";
   document.getElementById("search").placeholder = "Search bundles — name, hash, asset name, path…";
@@ -519,7 +755,8 @@ function clearCats() { activeCats.clear(); document.querySelectorAll(".cat-chip"
 function togType(cb) { if (cb.checked) activeTypes.add(cb.value); else activeTypes.delete(cb.value); af(); }
 function clearTypes() { activeTypes.clear(); document.querySelectorAll("#type-list input").forEach(c => c.checked = false); af(); }
 
-function af() {
+function af(keepPage) {
+  if (!keepPage) page = 1;
   if (!catalog.length) return;
   const q  = document.getElementById("search").value.toLowerCase().trim();
   const sk = document.getElementById("sort-sel").value;
@@ -530,7 +767,7 @@ function af() {
     let assets = inBundle.assets || [];
     if (q) assets = assets.filter(a => (a.name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q) || String(a.path_id).includes(q));
     if (activeTypes.size) assets = assets.filter(a => activeTypes.has(a.type));
-    filtered = assets;
+    filtered = visualFirst(assets, () => inBundle);
     renderAssets(filtered);
     setHead("asset");
     setText("rc", `${filtered.length.toLocaleString()} assets in bundle`);
@@ -553,6 +790,7 @@ function af() {
       if (a.name && !b.name) return -1; if (!a.name && b.name) return 1;
       return (a.name || "").localeCompare(b.name || "");
     });
+    filtered = visualFirst(filtered, row => (assetMap.get(row.key) || {}).bundle || {});
     setHead("flat");
     renderFlat(filtered);
     setText("rc", `${filtered.length.toLocaleString()} assets`);
@@ -603,6 +841,89 @@ function af() {
 // ══════════════════════════════════════════════════════
 // RENDER BUNDLES
 // ══════════════════════════════════════════════════════
+// In the grid, something you can look at is worth more than something you
+// cannot, so the ones with a picture come first.
+function hasThumb(bundle, asset) {
+  return webMode ? !!thumbURL(bundle, asset)
+                 : (serverOn && PREV_TYPES[asset.type] === "image");
+}
+function visualFirst(rows, bundleOf) {
+  if (viewMode !== "grid") return rows;
+  const withPic = [], without = [];
+  rows.forEach(r => (hasThumb(bundleOf(r), r.asset || r) ? withPic : without).push(r));
+  return withPic.concat(without);
+}
+
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById("vt-list").className = mode === "list" ? "on" : "";
+  document.getElementById("vt-grid").className = mode === "grid" ? "on" : "";
+  try { localStorage.setItem("pm_view", mode); } catch(e) {}
+  af(true);
+}
+try { viewMode = localStorage.getItem("pm_view") || "list"; } catch(e) {}
+
+function showGrid(on) {
+  document.getElementById("grid").style.display = on ? "grid" : "none";
+  document.getElementById("list").style.display = on ? "none" : "";
+  document.getElementById("thead").style.display = on ? "none" : "grid";
+}
+
+const TYPE_ICON = {
+  Texture2D:"🖼️", Sprite:"🖼️", AudioClip:"🔊", TextAsset:"📄", MonoBehaviour:"📝",
+  Mesh:"🧊", Shader:"✨", Material:"🎨", Font:"🔤", GameObject:"📦", Transform:"↔️",
+  AnimationClip:"🎬", SpriteAtlas:"🗂️",
+};
+
+// Thumbnails for whichever assets are on screen.
+function renderGrid(rows, bundleOf) {
+  const start = (page - 1) * PG;
+  const slice = rows.slice(start, start + PG);
+  document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
+  const el = document.getElementById("grid");
+  el.innerHTML = "";
+  slice.forEach(row => {
+    const b = bundleOf(row);
+    const a = row.asset || row;
+    const key = b.filename + "::" + a.path_id;
+    const cell = document.createElement("div");
+    cell.className = "gcell" + (selAssetKey === key ? " sel" : "");
+    const thumb = webMode ? thumbURL(b, a)
+      : (serverOn && PREV_TYPES[a.type] === "image"
+          ? apiURL("/api/preview", { bundle: b.filename, path_id: a.path_id })
+          : null);
+    cell.innerHTML = `
+      <div class="gthumb">${thumb
+        ? `<img loading="lazy" src="${esc(thumb)}" alt="${esc(a.name || a.type)}">`
+        : `<span class="gicon">${TYPE_ICON[a.type] || "📄"}</span>`}</div>
+      <div class="gname" title="${esc(a.name || "(unnamed)")}">${esc(a.name || "(unnamed)")}</div>
+      <div class="gsub">${esc(a.type)}${isEdited(b.filename, a.path_id) ? " · replaced" : ""}</div>`;
+    cell.addEventListener("click", () => selectAsset(key, cell, true));
+    el.appendChild(cell);
+  });
+  renderPag(rows.length);
+}
+
+// Where a bundle came from decides where a modded copy has to go back to.
+function originOf(b) {
+  if (b.custom) return "custom";
+  if (b.file_kind) return b.file_kind === "UnityFS bundle" ? "external" : "internal";
+  return /-[0-9a-f]{32}\.assetbundle$/i.test(b.filename || "") ? "internal" : "external";
+}
+const ORIGIN_LABEL = {
+  internal: "in the APK",
+  external: "downloaded",
+  custom: "yours",
+};
+function originTag(b) {
+  const o = originOf(b);
+  return `<span class="origin-tag ${o}" title="${o === "custom"
+    ? "Not part of the shipped collection - you added this one"
+    : o === "internal"
+      ? "Ships inside the APK, at assets/bin/Data"
+      : "Downloaded by the game, under UnityCache/Shared"}">${ORIGIN_LABEL[o]}</span>`;
+}
+
 function setHead(mode) {
   const th = document.getElementById("thead"); th.style.display = "grid";
   if (mode === "bundle") {
@@ -618,6 +939,7 @@ function setHead(mode) {
 }
 
 function renderBundles(list) {
+  showGrid(false);   // the grid shows assets, and this view shows bundles
   const start = (page - 1) * PG;
   const slice = list.slice(start, start + PG);
   document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
@@ -630,7 +952,7 @@ function renderBundles(list) {
     row.dataset.hash = b.filename;
     row.innerHTML = `
       <div class="lc">
-        <span class="bname ${b.derived_name ? "" : "none"}">${b.derived_name ? esc(b.derived_name) : "(unnamed)"}</span>
+        <span class="bname ${b.derived_name ? "" : "none"}">${b.derived_name ? esc(b.derived_name) : "(unnamed)"}${originTag(b)}</span>
         <span class="bhash">${esc(b.filename)}</span>
         <span class="bpreview">${esc(prev)}</span>
       </div>
@@ -648,6 +970,8 @@ function renderBundles(list) {
 // RENDER ASSETS (inside a bundle)
 // ══════════════════════════════════════════════════════
 function renderAssets(assets) {
+  if (viewMode === "grid") { showGrid(true); return renderGrid(assets, () => inBundle); }
+  showGrid(false);
   const start = (page - 1) * PG;
   const slice = assets.slice(start, start + PG);
   document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
@@ -660,7 +984,7 @@ function renderAssets(assets) {
 
     row.innerHTML = `
       <div class="lc">
-        <span class="aname ${a.name ? "" : "unnamed"}">${a.name ? esc(a.name) : "(unnamed)"}</span>
+        <span class="aname ${a.name ? "" : "unnamed"}">${a.name ? esc(a.name) : "(unnamed)"}</span>${isEdited(inBundle.filename, a.path_id) ? '<span class="edited-tag">REPLACED</span>' : ""}
         <span class="apid">path_id: ${a.path_id}</span>
       </div>
       <div class="lc center"><span class="type-badge">${esc(a.type)}</span></div>
@@ -678,6 +1002,11 @@ function renderAssets(assets) {
 // RENDER FLAT ASSETS (asset tab)
 // ══════════════════════════════════════════════════════
 function renderFlat(list) {
+  if (viewMode === "grid") {
+    showGrid(true);
+    return renderGrid(list, row => (assetMap.get(row.key) || {}).bundle || {});
+  }
+  showGrid(false);
   const start = (page - 1) * PG;
   const slice = list.slice(start, start + PG);
   document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
@@ -708,13 +1037,8 @@ function renderFlat(list) {
 // SELECT & PREVIEW ASSET
 // ══════════════════════════════════════════════════════
 function selectAsset(key, row, doPreview = false) {
-  // Update selection highlight
   if (selRow) selRow.classList.remove("sel");
-  // Also update old eye-btn active state
-  if (selRow) { const old = selRow.querySelector(".eye-btn"); if (old) old.classList.remove("active"); }
   row.classList.add("sel");
-  const eyeBtn = row.querySelector(".eye-btn");
-  if (eyeBtn) eyeBtn.classList.add("active");
   selRow = row; selAssetKey = key;
 
   const entry = assetMap.get(key);
@@ -745,10 +1069,10 @@ function openPreview(b, a, doFetch = false) {
     <div class="mi"><div class="mk">Bundle Assets</div><div class="mv">${b.asset_count || 0}</div></div>
   `;
 
-  // Body: bookmark, notes, context
+  // Body: actions, bookmark, notes, context
   const isBm = bookmarks.has(b.filename);
   const inBundleView = !!inBundle;
-  let body = `
+  let body = assetActions(b, a) + `
     <button class="bmark-btn ${isBm ? "on" : ""}" id="bmark-btn" onclick="toggleBm()">
       ${isBm ? "★ Bundle Bookmarked" : "☆ Bookmark Bundle"}
     </button>
@@ -778,18 +1102,19 @@ function openPreview(b, a, doFetch = false) {
   document.getElementById("pbody").innerHTML = body;
 
   // Render area
-  const canPrev = !!PREV_TYPES[a.type];
   const prender = document.getElementById("prender");
+  const have = canShow(b, a);
+  const canPrev = webMode ? !!previewInfo(b, a) : !!PREV_TYPES[a.type];
 
-  if (!canPrev) {
-    // Non-previewable: show type-specific info
+  if (have && canPrev) {
+    fetchPreview(b, a, prender);
+  } else if (webMode) {
+    prender.innerHTML = renderTypeInfo(a) +
+      `<div class="pmsg">This type is not published online. The desktop version reads it straight from the bundle.</div>`;
+  } else if (!canPrev) {
     prender.innerHTML = renderTypeInfo(a);
-  } else if (doFetch && serverOn) {
-    fetchPreview(b.filename, a, prender);
-  } else if (canPrev && serverOn) {
-    prender.innerHTML = `<div class="pmsg">Click 👁 to load preview</div>`;
-  } else if (canPrev && !serverOn) {
-    prender.innerHTML = `<div class="pmsg"><button class="tbtn" onclick="showModal()" style="margin:0 auto">🔌 Start preview server</button></div>`;
+  } else {
+    prender.innerHTML = `<div class="pmsg"><button class="tbtn" onclick="showModal()" style="margin:0 auto">🔌 Start the local server</button></div>`;
   }
 }
 
@@ -822,17 +1147,18 @@ function renderTypeInfo(a) {
 // ══════════════════════════════════════════════════════
 // FETCH PREVIEW FROM SERVER
 // ══════════════════════════════════════════════════════
-async function fetchPreview(bundleHash, asset, prender) {
+async function fetchPreview(b, asset, prender) {
   prender.innerHTML = `<div class="pmsg loading">Loading</div>`;
 
-  const params = new URLSearchParams({
-    bundle: bundleHash, type: asset.type,
-    name: asset.name || "", path_id: asset.path_id
-  });
-
   try {
-    const resp = await fetch(`${SRV}/api/preview?${params}`);
+    // Published copy: the asset is already a file sitting next to this page.
+    const resp = webMode
+      ? await fetch(assetURL(b, asset))
+      : await api(`/api/preview?` + new URLSearchParams({
+          bundle: b.filename, path_id: asset.path_id
+        }));
     const mime = resp.headers.get("Content-Type") || "";
+    const staged = resp.headers.get("X-PM-Staged") === "1";
 
     if (!resp.ok) {
       const j = await resp.json().catch(() => ({ error: "Unknown error" }));
@@ -843,7 +1169,8 @@ async function fetchPreview(bundleHash, asset, prender) {
     if (mime.startsWith("image/")) {
       const blob = await resp.blob();
       const url  = URL.createObjectURL(blob);
-      prender.innerHTML = `<div class="checkers"></div><img src="${url}" alt="${esc(asset.name || asset.type)}">`;
+      prender.innerHTML = `<div class="checkers"></div><img src="${url}" alt="${esc(asset.name || asset.type)}">`
+        + (staged ? `<div class="pmsg" style="position:absolute;bottom:0;left:0;background:var(--surf);color:var(--yellow)">your replacement, as it will be saved</div>` : "");
     } else if (mime.startsWith("audio/")) {
       const blob = await resp.blob();
       const url  = URL.createObjectURL(blob);
@@ -862,7 +1189,7 @@ async function fetchPreview(bundleHash, asset, prender) {
 
 function closePreview() {
   document.getElementById("preview").classList.remove("open");
-  if (selRow) { selRow.classList.remove("sel"); const eb = selRow.querySelector(".eye-btn"); if (eb) eb.classList.remove("active"); selRow = null; }
+  if (selRow) { selRow.classList.remove("sel"); selRow = null; }
   selAssetKey = null;
   // Stop audio
   const au = document.querySelector("#prender audio"); if (au) { au.pause(); au.src = ""; }
@@ -917,15 +1244,15 @@ function renderPag(total) {
   const pag   = document.getElementById("pagination"); pag.innerHTML = "";
   if (pages <= 1) return;
   const prev = document.createElement("button"); prev.className = "pgbtn"; prev.textContent = "← Prev"; prev.disabled = page === 1;
-  prev.onclick = () => { page--; af(); }; pag.appendChild(prev);
+  prev.onclick = () => { page--; af(true); }; pag.appendChild(prev);
   const s = Math.max(1, page - 3), e = Math.min(pages, s + 6);
   for (let p = s; p <= e; p++) {
     const btn = document.createElement("button"); btn.className = "pgbtn" + (p === page ? " on" : ""); btn.textContent = p;
-    const pp = p; btn.onclick = () => { page = pp; af(); }; pag.appendChild(btn);
+    const pp = p; btn.onclick = () => { page = pp; af(true); }; pag.appendChild(btn);
   }
   const inf = document.createElement("span"); inf.className = "pginfo"; inf.textContent = `${page}/${pages}`; pag.appendChild(inf);
   const next = document.createElement("button"); next.className = "pgbtn"; next.textContent = "Next →"; next.disabled = page === pages;
-  next.onclick = () => { page++; af(); }; pag.appendChild(next);
+  next.onclick = () => { page++; af(true); }; pag.appendChild(next);
 }
 
 // ══════════════════════════════════════════════════════
@@ -940,10 +1267,221 @@ function exportF() {
 }
 
 // ══════════════════════════════════════════════════════
+// EXPORT ASSETS, REPLACE THEM, BUILD THE BUNDLE
+// ══════════════════════════════════════════════════════
+const IMG_TYPES = { "Texture2D": 1, "Sprite": 1 };
+
+function isEdited(bundle, pathId) {
+  const e = pendingEdits[bundle];
+  return !!(e && e.changes.some(c => String(c.path_id) === String(pathId)));
+}
+
+function canImport(type) {
+  const list = srvInfo.can_import || ["Texture2D", "Sprite", "TextAsset", "MonoBehaviour"];
+  return list.indexOf(type) >= 0;
+}
+
+// The buttons shown at the top of the preview panel.
+function assetActions(b, a) {
+  if (webMode) {
+    const url = assetURL(b, a);
+    if (!url) {
+      return `<div class="hint">This type is not published online. The desktop version can read and export it.</div>`;
+    }
+    const file = (a.name || a.type) + "." + previewInfo(b, a).e;
+    return `
+      <div class="act-grid">
+        <a class="act-btn primary wide" style="text-decoration:none;line-height:1.7"
+           href="${esc(url)}" download="${esc(file)}">⬇ Download ${esc(previewInfo(b, a).e.toUpperCase())}</a>
+      </div>
+      <div class="hint">Saved as <code>${esc(file)}</code>. To put a changed version back
+        into the game you need the desktop version.</div>`;
+  }
+  if (!serverOn) {
+    return `<div class="hint">Start the local server to export or replace this asset.</div>`;
+  }
+  const edited = isEdited(b.filename, a.path_id);
+  const replaceable = canImport(a.type);
+  const what = IMG_TYPES[a.type] ? "PNG" : a.type === "TextAsset" ? "text" : "JSON";
+  return `
+    <div class="act-grid">
+      <button class="act-btn" onclick="exportAsset(false)">⬇ Export ${esc(what)}</button>
+      <button class="act-btn" onclick="exportAsset(true)" title="The undecoded bytes of this object">⬇ Export raw</button>
+      <button class="act-btn ${replaceable ? "primary" : ""} wide" ${replaceable ? "" : "disabled"}
+              onclick="pickReplacement()">
+        ${edited ? "↻ Replace again" : "📥 Replace this asset…"}
+      </button>
+    </div>
+    <div class="hint${replaceable ? "" : " warn"}" id="act-hint">${
+      replaceable
+        ? (IMG_TYPES[a.type]
+            ? "Pick a PNG. Export first, edit that file, then import it back so the size matches."
+            : a.type === "TextAsset"
+              ? "Pick a text file. It replaces the asset's contents exactly."
+              : "Pick a JSON file shaped like the exported one.")
+        : esc(a.type) + " cannot be replaced directly. Export its JSON, edit that, and import the .json back."
+    }</div>
+    <input type="file" id="repl-input" style="display:none">
+  `;
+}
+
+function selectedAsset() {
+  const entry = selAssetKey ? assetMap.get(selAssetKey) : null;
+  return entry || null;
+}
+
+function exportAsset(raw) {
+  const entry = selectedAsset(); if (!entry) return;
+  const url = apiURL("/api/export", {
+    bundle: entry.bundle.filename, path_id: entry.asset.path_id, raw: raw ? "1" : ""
+  });
+  window.location.href = url;
+}
+
+function exportBundleZip() {
+  if (!inBundle) return;
+  const n = (inBundle.assets || []).length;
+  if (n > 400 && !confirm(`Export all ${n.toLocaleString()} assets in this bundle? That can take a while.`)) return;
+  window.location.href = apiURL("/api/export-bundle", { bundle: inBundle.filename });
+}
+
+function pickReplacement() {
+  const input = document.getElementById("repl-input");
+  if (!input) return;
+  input.value = "";
+  input.onchange = () => { if (input.files[0]) sendReplacement(input.files[0]); };
+  input.click();
+}
+
+async function sendReplacement(file) {
+  const entry = selectedAsset(); if (!entry) return;
+  const hint = document.getElementById("act-hint");
+  const say = (text, cls) => { if (hint) { hint.className = "hint" + (cls ? " " + cls : ""); hint.textContent = text; } };
+  say(`Importing ${file.name}…`);
+
+  const form = new FormData();
+  form.append("bundle", entry.bundle.filename);
+  form.append("path_id", entry.asset.path_id);
+  form.append("file", file);
+
+  try {
+    const resp = await api("/api/import", { method: "POST", body: form });
+    const data = await resp.json();
+    if (!resp.ok) { say(data.error || "Import failed", "err"); return; }
+    say(`Replaced with ${file.name}. ${(data.change.warnings || []).join(" · ")}`,
+        (data.change.warnings || []).length ? "warn" : "");
+    await refreshEdits();
+    showTray();
+    af(true);
+    openPreview(entry.bundle, entry.asset, true);
+  } catch(e) {
+    say("Could not reach the server: " + e.message, "err");
+  }
+}
+
+// ── Pending edits tray ────────────────────────────────
+async function refreshEdits() {
+  try {
+    const r = await api("/api/edits");
+    if (!r.ok) return;
+    const data = await r.json();
+    pendingEdits = data.edits || {};
+  } catch(e) { pendingEdits = {}; }
+  renderTray();
+}
+
+function countEdits() {
+  return Object.values(pendingEdits).reduce((s, e) => s + e.changes.length, 0);
+}
+
+function renderTray() {
+  const total = countEdits();
+  setText("tray-count", total);
+  setText("tray-toggle-n", total);
+  const toggle = document.getElementById("tray-toggle");
+  const tray = document.getElementById("tray");
+  if (!total && !lastBuild) { tray.classList.remove("open"); toggle.classList.remove("show"); return; }
+  if (!tray.classList.contains("open")) toggle.classList.add("show");
+
+  let html = "";
+  Object.entries(pendingEdits).forEach(([bundle, info]) => {
+    html += `<div class="edit-grp"><div class="eb">${esc(bundle)}</div>`;
+    info.changes.forEach(c => {
+      html += `<div class="edit-item"><b>${esc(c.name || "(unnamed)")}</b> · ${esc(c.type)} · ${esc(c.source)}`;
+      (c.warnings || []).forEach(w => { html += `<br><span style="color:var(--yellow)">⚠ ${esc(w)}</span>`; });
+      html += `</div>`;
+    });
+    const writes = info.will_write || [];
+    if (writes.length && !(writes.length === 1 && writes[0] === bundle)) {
+      html += `<div class="edit-item" style="color:var(--yellow)">Will write: ${writes.map(esc).join(", ")}</div>`;
+    }
+    html += `</div>`;
+  });
+
+  if (lastBuild) {
+    html += `<div class="built"><div style="color:var(--green);font-weight:700;margin-bottom:4px">✓ Built</div>`;
+    lastBuild.files.forEach(f => {
+      html += `<div>⬇ <a href="${esc(SRV + f.url)}${TOKEN ? "&token=" + encodeURIComponent(TOKEN) : ""}">${esc(f.name)}</a> · ${esc(f.size_human)}</div>`;
+    });
+    if (lastBuild.note) html += `<div style="color:var(--yellow);margin-top:4px">${esc(lastBuild.note)}</div>`;
+    html += `<div style="margin-top:4px">Also saved in<br><code style="color:var(--cyan)">${esc(lastBuild.folder)}</code></div></div>`;
+  }
+
+  document.getElementById("tray-body").innerHTML = html;
+}
+
+function showTray() {
+  document.getElementById("tray").classList.add("open");
+  document.getElementById("tray-toggle").classList.remove("show");
+  renderTray();
+}
+function hideTray() {
+  document.getElementById("tray").classList.remove("open");
+  if (countEdits() || lastBuild) document.getElementById("tray-toggle").classList.add("show");
+}
+
+async function buildEdits() {
+  const bundles = Object.keys(pendingEdits);
+  if (!bundles.length) return;
+  const bundle = (inBundle && pendingEdits[inBundle.filename]) ? inBundle.filename : bundles[0];
+  const pack = document.getElementById("tray-pack").value;
+  const body = document.getElementById("tray-body");
+  body.insertAdjacentHTML("afterbegin", `<div class="hint" id="build-msg">Building ${esc(bundle)}…</div>`);
+  try {
+    const resp = await api("/api/build", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bundle, pack })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      const msg = document.getElementById("build-msg");
+      if (msg) { msg.className = "hint err"; msg.textContent = data.error || "Build failed"; }
+      return;
+    }
+    lastBuild = data;
+    renderTray();
+  } catch(e) {
+    const msg = document.getElementById("build-msg");
+    if (msg) { msg.className = "hint err"; msg.textContent = "Could not reach the server: " + e.message; }
+  }
+}
+
+async function discardEdits() {
+  if (countEdits() && !confirm("Throw away every pending replacement?")) return;
+  try { await api("/api/edits", { method: "DELETE" }); } catch(e) {}
+  lastBuild = null;
+  await refreshEdits();
+  hideTray();
+  document.getElementById("tray-toggle").classList.remove("show");
+  if (inBundle) loadLiveAssets(inBundle);
+}
+
+// ══════════════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════════════
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
-function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 </script>
 </body>
 </html>

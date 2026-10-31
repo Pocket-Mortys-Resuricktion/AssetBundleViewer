@@ -2,356 +2,259 @@
 """
 Pocket Mortys Asset Bundle Catalog Builder
 ==========================================
-Scans all asset bundles in a directory using UnityPy, extracts maximum info
-from each bundle, and outputs catalog.json for the HTML viewer.
-
-Requirements:
-    pip install unitypy
+Scans a directory of Unity asset bundles and writes catalog.json for the
+viewer: what every bundle is called, what is inside it, and how it is
+categorised.
 
 Usage:
-    python catalog_builder.py                     # prompts for directory
-    python catalog_builder.py "C:/path/to/bundles"
+    python catalog_builder.py                        # prompts for a directory
+    python catalog_builder.py AssetBundles
+    python catalog_builder.py AssetBundles -o catalog.json -j 8
+    python catalog_builder.py AssetBundles --fresh   # ignore saved progress
 
-Features:
-    - Recovers original bundle names from bundle headers
-    - Lists every asset (name + type) inside each bundle
-    - Auto-categorizes bundles by dominant asset type
-    - Resumable: saves progress every 50 files
-    - Skips non-bundle files gracefully
+The scan is resumable: progress is saved periodically, so an interrupted run
+picks up where it left off. Pass --fresh to start over.
 """
 
-import os
+from __future__ import annotations
+
+import argparse
 import json
+import os
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 try:
-    import UnityPy
-except ImportError as _e:
-    print(f"ERROR: Could not import UnityPy: {_e}")
-    print()
-    print("UnityPy may be installed under a different Python version.")
-    print("Try running with the Python Launcher instead:")
-    print("    py -3.13 catalog_builder.py <your_bundle_dir>")
-    print("Or install directly into this interpreter:")
-    print(f"    {sys.executable} -m pip install unitypy")
+    import bundle_io
+except ImportError as exc:  # pragma: no cover - import guard
+    print(f"ERROR: could not import bundle_io: {exc}")
+    print("Run this script from the folder it lives in.")
     sys.exit(1)
 
-OUTPUT_FILE   = "catalog.json"
-PROGRESS_FILE = "catalog_progress.json"
-SAVE_EVERY    = 50   # save progress every N files
+try:
+    import UnityPy  # noqa: F401  (imported for the clearer error message below)
+except ImportError as exc:  # pragma: no cover - import guard
+    print(f"ERROR: could not import UnityPy: {exc}")
+    print()
+    print("Install the dependencies with:")
+    print(f"    {sys.executable} -m pip install -r requirements.txt")
+    sys.exit(1)
 
-# Types to exclude from "dominant type" calculation (meta/overhead types)
-META_TYPES = {"AssetBundle", "PreloadData", "AssetBundleManifest", "BuildSettings", "ResourceManager"}
-
-# Human-readable category mapping
-CATEGORY_MAP = {
-    "Texture2D":        "Texture",
-    "Sprite":           "Sprite / UI",
-    "AudioClip":        "Audio",
-    "Mesh":             "3D Mesh",
-    "MeshFilter":       "3D Mesh",
-    "SkinnedMeshRenderer": "3D Mesh",
-    "Shader":           "Shader",
-    "Material":         "Material",
-    "AnimationClip":    "Animation",
-    "Animator":         "Animation",
-    "TextAsset":        "Text / Data",
-    "MonoBehaviour":    "Script Data",
-    "GameObject":       "Scene Object",
-    "Font":             "Font",
-    "VideoClip":        "Video",
-    "ComputeShader":    "Shader",
-    "ScriptableObject": "Script Data",
-    "Cubemap":          "Texture",
-    "RenderTexture":    "Texture",
-    "LightingDataAsset":"Lighting",
-    "NavMeshData":      "Navigation",
-    "PhysicMaterial":   "Physics",
-    "TerrainData":      "Terrain",
-}
+DEFAULT_OUTPUT = "catalog.json"
+PROGRESS_NAME = "catalog_progress.json"
+SAVE_EVERY = 100
 
 
-def format_size(bytes_val):
-    """Human-readable file size."""
-    for unit in ("B", "KB", "MB", "GB"):
-        if bytes_val < 1024:
-            return f"{bytes_val:.1f} {unit}"
-        bytes_val /= 1024
-    return f"{bytes_val:.1f} GB"
-
-
-def safe_read_name(obj):
-    """Try to read an asset's name without crashing."""
+def _scan_one(path):
+    """Worker body. Returns (filename, entry). Runs in a separate process."""
     try:
-        data = obj.read()
-        for attr in ("name", "m_Name", "m_AssetBundleName"):
-            val = getattr(data, attr, None)
-            if val and isinstance(val, str):
-                return val.strip()
-    except Exception:
-        pass
-    return ""
+        return os.path.basename(path), bundle_io.describe(path)
+    except Exception as exc:  # a worker must never take the pool down
+        return os.path.basename(path), {
+            "filename": os.path.basename(path),
+            "valid": False,
+            "error": f"{type(exc).__name__}: {exc}",
+            "size": 0, "size_human": "0.0 B", "assets": [], "asset_count": 0,
+            "asset_types": [], "type_counts": {}, "all_asset_names": [],
+            "category": "Unknown", "derived_name": "", "original_name": "",
+        }
 
 
-def get_unity_version(obj):
-    """Try to extract Unity version from an object's reader."""
-    try:
-        reader = getattr(obj, "reader", None) or getattr(obj, "assets_file", None)
-        if reader:
-            v = getattr(reader, "unity_version", "") or getattr(reader, "unityVersion", "")
-            if v:
-                return str(v)
-    except Exception:
-        pass
-    return ""
+def print_summary(catalog: list) -> None:
+    valid = [b for b in catalog if b.get("valid")]
+    invalid = [b for b in catalog if not b.get("valid")]
+    named = [b for b in valid if b.get("derived_name")]
 
-
-def extract_container_paths(obj):
-    """Extract asset paths from an AssetBundle object's m_Container."""
-    paths = []
-    try:
-        data = obj.read()
-        container = getattr(data, "m_Container", None)
-        if container:
-            # m_Container is a list of (path, asset_info) pairs
-            if isinstance(container, (list, tuple)):
-                for item in container:
-                    if isinstance(item, (list, tuple)) and len(item) >= 1:
-                        p = item[0]
-                        if p and isinstance(p, str):
-                            paths.append(p)
-            elif isinstance(container, dict):
-                paths.extend(k for k in container.keys() if k)
-    except Exception:
-        pass
-    return paths
-
-
-def scan_bundle(filepath: str) -> dict:
-    """
-    Open one file and extract everything we can from it.
-    Returns a dict with all discovered information.
-    """
-    fname = os.path.basename(filepath)
-    size  = os.path.getsize(filepath)
-
-    result = {
-        "filename":       fname,
-        "size":           size,
-        "size_human":     format_size(size),
-        "valid":          False,
-        "original_name":  "",
-        "category":       "Unknown",
-        "dominant_type":  "",
-        "unity_version":  "",
-        "internal_paths": [],
-        "container_paths":[],
-        "asset_types":    [],
-        "type_counts":    {},
-        "assets":         [],
-        "asset_count":    0,
-        "error":          ""
-    }
-
-    try:
-        env = UnityPy.load(filepath)
-        result["valid"] = True
-
-        # Internal paths (keys of env.files) often reveal the original bundle path
-        internal_paths = list(env.files.keys())
-        result["internal_paths"] = internal_paths
-
-        # Attempt to infer original name from internal paths
-        for path in internal_paths:
-            p = path.strip()
-            p_lower = p.lower()
-            # Skip empty, dots, and raw CAB hashes (which are just content-addressable IDs)
-            if p and p != "." and not p_lower.startswith("cab-"):
-                result["original_name"] = p
-                break
-
-        assets      = []
-        type_counts = {}
-        unity_ver   = ""
-        container_paths = []
-
-        for obj in env.objects:
-            try:
-                type_name = obj.type.name if hasattr(obj.type, "name") else str(obj.type)
-            except Exception:
-                type_name = "Unknown"
-
-            # Get unity version once
-            if not unity_ver:
-                unity_ver = get_unity_version(obj)
-
-            # Special handling for AssetBundle metadata object
-            if type_name == "AssetBundle":
-                # Try to get the authoritative original bundle name
-                try:
-                    data = obj.read()
-                    ab_name = getattr(data, "m_AssetBundleName", "") or ""
-                    if ab_name and not result["original_name"]:
-                        result["original_name"] = ab_name.strip()
-                except Exception:
-                    pass
-
-                # Extract container paths (asset paths within the bundle)
-                cp = extract_container_paths(obj)
-                container_paths.extend(cp)
-
-                # We skip adding AssetBundle itself to the assets list
-                # (it's metadata, not a real asset)
-                type_counts[type_name] = type_counts.get(type_name, 0) + 1
-                continue
-
-            name = safe_read_name(obj)
-            asset_entry = {
-                "type":    type_name,
-                "name":    name,
-                "path_id": obj.path_id
-            }
-            assets.append(asset_entry)
-            type_counts[type_name] = type_counts.get(type_name, 0) + 1
-
-        # If we still don't have an original name, try container paths
-        if not result["original_name"] and container_paths:
-            # Container paths look like "assets/audio/sfx_blaster.wav"
-            # The first segment often matches the bundle name
-            result["original_name"] = container_paths[0].split("/")[0] if container_paths else ""
-
-        result["unity_version"]   = unity_ver
-        result["container_paths"] = container_paths
-        result["assets"]          = assets
-        result["asset_count"]     = len(assets)
-        result["type_counts"]     = type_counts
-        result["asset_types"]     = sorted(type_counts.keys())
-
-        # Dominant type: most common non-meta type
-        real_types = {k: v for k, v in type_counts.items() if k not in META_TYPES}
-        if real_types:
-            dom = max(real_types, key=real_types.get)
-            result["dominant_type"] = dom
-            result["category"]      = CATEGORY_MAP.get(dom, dom)
-        elif type_counts:
-            dom = max(type_counts, key=type_counts.get)
-            result["dominant_type"] = dom
-            result["category"]      = CATEGORY_MAP.get(dom, dom)
-
-    except Exception as e:
-        result["error"] = str(e)
-
-    return result
-
-
-def print_summary(catalog: list):
-    """Print a breakdown of the catalog after scanning."""
-    valid   = [b for b in catalog if b["valid"]]
-    invalid = [b for b in catalog if not b["valid"]]
-
-    print(f"\n{'='*55}")
-    print(f"  CATALOG SUMMARY")
-    print(f"{'='*55}")
-    print(f"  Total files scanned : {len(catalog)}")
-    print(f"  Valid asset bundles : {len(valid)}")
+    print()
+    print("=" * 58)
+    print("  CATALOG SUMMARY")
+    print("=" * 58)
+    print(f"  Files scanned       : {len(catalog)}")
+    print(f"  Valid bundles       : {len(valid)}")
     print(f"  Invalid / skipped   : {len(invalid)}")
+    print(f"  Named bundles       : {len(named)} / {len(valid)}")
 
-    named = [b for b in valid if b["original_name"]]
-    print(f"  Recovered names     : {len(named)} / {len(valid)}")
+    sources = {}
+    for bundle in valid:
+        key = bundle.get("name_source") or "(none)"
+        sources[key] = sources.get(key, 0) + 1
+    if sources:
+        print("\n  Where the names came from:")
+        for key, count in sorted(sources.items(), key=lambda kv: -kv[1]):
+            print(f"    {key:<32} {count:>6}")
 
-    print(f"\n  Category breakdown:")
-    cats = {}
-    for b in valid:
-        c = b["category"]
-        cats[c] = cats.get(c, 0) + 1
-    for cat, count in sorted(cats.items(), key=lambda x: -x[1]):
-        bar = "█" * min(30, count // max(1, len(valid) // 30))
-        print(f"    {cat:<20} {count:>5}  {bar}")
+    categories = {}
+    for bundle in valid:
+        key = bundle.get("category", "Unknown")
+        categories[key] = categories.get(key, 0) + 1
+    if categories:
+        biggest = max(categories.values())
+        print("\n  Category breakdown:")
+        for key, count in sorted(categories.items(), key=lambda kv: -kv[1]):
+            bar = "#" * max(1, round(30 * count / biggest))
+            print(f"    {key:<20} {count:>6}  {bar}")
 
-    total_assets = sum(b["asset_count"] for b in valid)
-    print(f"\n  Total assets found  : {total_assets:,}")
+    total_assets = sum(b.get("asset_count", 0) for b in valid)
+    print(f"\n  Assets found        : {total_assets:,}")
 
     if invalid:
-        print(f"\n  First few invalid files:")
-        for b in invalid[:5]:
-            print(f"    {b['filename'][:60]}  — {b['error'][:60]}")
-    print(f"{'='*55}")
+        print(f"\n  First few that could not be read:")
+        for bundle in invalid[:5]:
+            print(f"    {bundle['filename'][:52]:52}  {bundle.get('error','')[:50]}")
+    print("=" * 58)
 
 
-def main():
-    # --- Determine bundle directory ---
-    if len(sys.argv) > 1:
-        bundle_dir = Path(sys.argv[1])
-    else:
-        raw = input("Enter path to bundle directory (press Enter for current dir): ").strip()
-        bundle_dir = Path(raw) if raw else Path(".")
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Scan Unity asset bundles and write catalog.json.")
+    parser.add_argument("directory", nargs="?",
+                        help="folder holding the asset bundles")
+    parser.add_argument("-o", "--output", default=DEFAULT_OUTPUT,
+                        help=f"where to write the catalog (default {DEFAULT_OUTPUT})")
+    parser.add_argument("-j", "--jobs", type=int, default=0,
+                        help="worker processes (default: one per CPU core, max 8)")
+    parser.add_argument("--fresh", action="store_true",
+                        help="ignore any saved progress and rescan everything")
+    parser.add_argument("--pretty", action="store_true",
+                        help="write indented JSON (larger, easier to read)")
+    args = parser.parse_args()
 
-    if not bundle_dir.exists() or not bundle_dir.is_dir():
-        print(f"ERROR: Directory not found: {bundle_dir}")
-        sys.exit(1)
+    raw = args.directory
+    if not raw:
+        raw = input("Path to the bundle directory (Enter for ./AssetBundles): ").strip()
+        raw = raw.strip('"') or "AssetBundles"
 
-    all_files = [f for f in bundle_dir.iterdir() if f.is_file()]
-    total     = len(all_files)
-    print(f"Found {total} files in: {bundle_dir.resolve()}")
-    print(f"Output will be saved to: {Path(OUTPUT_FILE).resolve()}\n")
+    directory = Path(raw).expanduser()
+    if not directory.is_dir():
+        print(f"ERROR: not a directory: {directory}")
+        return 1
+    directory = directory.resolve()
 
-    # --- Load existing progress ---
-    catalog_dict = {}  # keyed by filename for deduplication
-    progress_path = bundle_dir / PROGRESS_FILE
-    if progress_path.exists():
+    files = sorted(
+        (entry for entry in directory.iterdir()
+         if entry.is_file()
+         and entry.name not in bundle_io.SIDECAR_FILES
+         # .resource / .resS hold the bulk data for audio and textures. They
+         # belong to a bundle rather than being one, so they are read through
+         # their owner and never listed on their own.
+         and entry.suffix.lower() not in (".resource", ".ress")),
+        key=lambda p: p.name.lower(),
+    )
+    total = len(files)
+    if not total:
+        print(f"ERROR: no files in {directory}")
+        return 1
+
+    output_path = Path(args.output).expanduser().resolve()
+    progress_path = directory / PROGRESS_NAME
+
+    print(f"Scanning {total} files in {directory}")
+    print(f"Catalog  -> {output_path}")
+
+    done = {}
+    if progress_path.exists() and not args.fresh:
         try:
-            with open(progress_path, "r", encoding="utf-8") as f:
-                catalog_dict = json.load(f)
-            print(f"Resuming from saved progress ({len(catalog_dict)} files already done)\n")
-        except Exception as e:
-            print(f"Could not load progress file: {e} — starting fresh\n")
+            with open(progress_path, "r", encoding="utf-8") as handle:
+                done = json.load(handle)
+            print(f"Resuming: {len(done)} files already scanned "
+                  f"(use --fresh to start over)")
+        except Exception as exc:
+            print(f"Could not read saved progress ({exc}); starting fresh")
+            done = {}
 
-    # --- Scan ---
-    start_time = time.time()
-    newly_scanned = 0
+    todo = [entry for entry in files if entry.name not in done]
+    jobs = args.jobs if args.jobs > 0 else min(8, os.cpu_count() or 1)
+    jobs = max(1, min(jobs, len(todo) or 1))
 
-    for i, filepath in enumerate(all_files):
-        fname = filepath.name
-        if fname in catalog_dict:
-            continue  # already done
+    if todo:
+        print(f"{len(todo)} to scan with {jobs} worker"
+              f"{'s' if jobs > 1 else ''}\n")
+    start = time.time()
+    completed = 0
 
-        elapsed  = time.time() - start_time
-        rate     = newly_scanned / elapsed if elapsed > 0 and newly_scanned > 0 else 0
-        remaining = (total - i) / rate if rate > 0 else 0
-        eta_str  = f"{remaining/60:.1f}m" if remaining > 60 else f"{remaining:.0f}s"
+    def save_progress() -> bool:
+        """
+        Checkpoint the scan. Never raises.
 
-        print(f"[{i+1:>4}/{total}]  {fname[:55]:<55}  ETA: {eta_str}", end="\r")
+        Losing a checkpoint costs a rescan; letting it throw would throw away
+        the scan that has already finished, which is far worse. Windows in
+        particular denies the rename while something else still holds the file
+        open, so a failure here is reported and otherwise ignored.
+        """
+        tmp = progress_path.with_name(progress_path.name + f".{os.getpid()}.tmp")
+        try:
+            with open(tmp, "w", encoding="utf-8") as handle:
+                json.dump(done, handle)
+            os.replace(tmp, progress_path)
+            return True
+        except Exception as exc:
+            print(f"\n  (could not save progress: {exc})")
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+            return False
 
-        result = scan_bundle(str(filepath))
-        catalog_dict[fname] = result
-        newly_scanned += 1
+    try:
+        if jobs == 1:
+            for entry in todo:
+                done[entry.name] = bundle_io.describe(str(entry))
+                completed += 1
+                _progress(entry.name, completed, len(todo), start)
+                if completed % SAVE_EVERY == 0:
+                    save_progress()
+        else:
+            with ProcessPoolExecutor(max_workers=jobs) as pool:
+                futures = [pool.submit(_scan_one, str(entry)) for entry in todo]
+                for future in as_completed(futures):
+                    name, entry = future.result()
+                    done[name] = entry
+                    completed += 1
+                    _progress(name, completed, len(todo), start)
+                    if completed % SAVE_EVERY == 0:
+                        save_progress()
+    except KeyboardInterrupt:
+        print("\n\nInterrupted. Saving what was scanned so far...")
+        save_progress()
+        print(f"Progress saved to {progress_path}. Run again to continue.")
+        return 130
 
-        # Save progress periodically
-        if newly_scanned % SAVE_EVERY == 0:
-            with open(progress_path, "w", encoding="utf-8") as f:
-                json.dump(catalog_dict, f)
-            print(f"\n  → Progress saved ({len(catalog_dict)}/{total} files done)")
+    if todo:
+        print()
 
-    print()  # newline after progress line
+    # The catalog is the thing worth having, so write it before the
+    # checkpoint: a problem saving progress must never cost the whole scan.
+    # Keep it in a stable order so the file diffs cleanly in git.
+    catalog = [done[entry.name] for entry in files if entry.name in done]
 
-    # --- Write final catalog.json ---
-    catalog_list = list(catalog_dict.values())
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as handle:
+        if args.pretty:
+            json.dump(catalog, handle, indent=1)
+        else:
+            json.dump(catalog, handle, separators=(",", ":"))
 
-    output_path = Path(OUTPUT_FILE)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(catalog_list, f, separators=(",", ":"))  # compact for smaller file
+    save_progress()
 
-    print(f"\nCatalog saved → {output_path.resolve()}")
+    size = bundle_io.format_size(output_path.stat().st_size)
+    elapsed = time.time() - start
+    print(f"Wrote {output_path} ({size}) in {elapsed:.1f}s")
+    print_summary(catalog)
+    print("\nOpen the viewer and load this catalog, or run:")
+    print(f"    python catalog_server.py \"{directory}\"")
+    return 0
 
-    # Save final progress too
-    with open(progress_path, "w", encoding="utf-8") as f:
-        json.dump(catalog_dict, f)
 
-    print_summary(catalog_list)
-    print(f"\nOpen catalog_viewer.html and load catalog.json to explore your bundles.\n")
+def _progress(name: str, position: int, total: int, start: float) -> None:
+    elapsed = time.time() - start
+    rate = position / elapsed if elapsed > 0 else 0
+    remaining = (total - position) / rate if rate > 0 else 0
+    eta = f"{remaining / 60:.1f}m" if remaining > 90 else f"{remaining:.0f}s"
+    line = f"[{position:>5}/{total}] {name[:48]:<48} ETA {eta}"
+    print(f"\r{line[:100]:<100}", end="", flush=True)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

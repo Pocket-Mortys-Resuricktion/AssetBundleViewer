@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────────────
+#  Things this toolkit produces
+# ─────────────────────────────────────────────────────────────────────
+
+# Bundles you rebuilt after replacing something, and assets you exported.
+# These are yours; they are not part of the project.
+exports/
+extracted/
+
+# The prerendered web previews. Half a gigabyte, generated from the bundles
+# by tools/prerender.py and published straight to Pages by the workflow.
+site/
+previews/
+
+# Scan state, written next to the bundles.
+catalog_progress.json
+catalog_progress*.tmp
+AssetBundles/catalog_progress.json
+
+# Catalogs built from somewhere other than AssetBundles/. The one catalog
+# this repo ships is committed deliberately and is not matched here.
+catalog-*.json
+catalog_custom.json
+
+# ─────────────────────────────────────────────────────────────────────
+#  Your own game data — never commit this
+# ─────────────────────────────────────────────────────────────────────
+# The repository ships one collection of bundles. Anything else you point
+# the tool at is your own copy of the game, and redistributing it is not
+# something this project does.
+
+CustomBundles/
+MyBundles/
+UnityCache/
+
+# Installers and their contents.
+*.apk
+*.apks
+*.xapk
+*.obb
+*.aab
+
+# IL2CPP metadata and the dumps made from it. The typetree dump in
+# typetrees/ is generated from these and is what gets committed instead.
+global-metadata.dat
+libil2cpp.so
+DummyDll/
+Managed/
+*.dll
+*.so
+*.dylib
+
+# Loose bundle data dropped in the project root by accident.
+/__data
+/*.resource
+/*.resS
+/*.split[0-9]
+
+# ─────────────────────────────────────────────────────────────────────
+#  Secrets and local configuration
+# ─────────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+secrets.json
+.claude/settings.local.json
+
+# ─────────────────────────────────────────────────────────────────────
+#  Python
+# ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ─────────────────────────────────────────────────────────────────────
+#  Editors and operating systems
+# ─────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─────────────────────────────────────────────────────────────────────
+#  Logs and scratch
+# ─────────────────────────────────────────────────────────────────────
+*.log
+tmp/
+scratch/

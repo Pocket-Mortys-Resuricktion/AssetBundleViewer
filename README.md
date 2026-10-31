@@ -1,152 +1,275 @@
-I'm lazy so I had Claude explain, I hope you don't mind 🥹
 # Pocket Mortys Bundle Catalog
 
-A set of tools for indexing, searching, and previewing the Unity asset bundles from *Pocket Mortys* (Android/iOS).
+Look inside every asset bundle in *Pocket Mortys*, export anything you find,
+and put your own version back in.
 
-The bundles ship as hashed filenames with no readable structure. These tools scan every bundle, record what is inside, and give you a searchable browser UI with live previews of textures, audio, and text data.
+The game ships about 4,000 bundles with no readable structure. These tools
+scan all of them, give you a searchable browser with real previews, and let
+you swap an asset for one of your own and build a bundle you can drop back
+onto your device.
 
-Built as part of a fan preservation effort for the game.
+A fan preservation project for a game that is no longer available.
 
-## Components
-
-| File | Purpose |
+|  | |
 |---|---|
-| `catalog_builder.py` | Scans a directory of bundles with [UnityPy](https://github.com/K0lb3/UnityPy) and writes `catalog.json`. |
-| `catalog_viewer.html` | Standalone browser UI for searching, filtering, bookmarking, and annotating the catalog. No build step. |
-| `catalog_server.py` | Optional local Flask server that extracts assets from the bundles on demand so the viewer can preview them. |
-| `catalog.json` | Catalog output. |
+| **Just want to look around?** | [Open it in your browser](#the-online-version). Nothing to install, works on a phone. |
+| **Want to mod?** | [Get the desktop version](#the-desktop-version). One command. |
 
-## Features
+---
 
-**Builder**
-- Lists every asset in every bundle (name, Unity type, path ID)
-- Records per-bundle type counts, internal paths, and container paths
-- Auto-categorizes each bundle by its dominant asset type (Texture, Sprite / UI, Audio, 3D Mesh, Shader, Animation, Text / Data, Script Data, and so on)
-- Attempts to recover original bundle names from bundle headers
-- Resumable: progress is saved every 50 files, so an interrupted scan picks up where it left off
-- Skips files that are not valid bundles and records the error instead of crashing
+## The online version
 
-**Viewer**
-- Two views: **Bundles** (one row per bundle) and **All Assets** (flat list across every bundle)
-- Search by bundle name, hash, asset name, or path
-- Filter by category, asset type, identified-only, bookmarked, or has-notes
-- Sort by name, size, asset count, category, or hash
-- Bookmarks and per-bundle notes (stored in your browser's `localStorage`)
-- Export the current filtered view as JSON
-- Live previews when the server is running:
-
-| Asset type | Preview |
-|---|---|
-| `Texture2D`, `Sprite` | Rendered as PNG |
-| `AudioClip` | Playable audio (Ogg / WAV / MP3 detected automatically) |
-| `TextAsset` | Plain text |
-| `MonoBehaviour` | JSON dump of its fields |
-| Anything else | Metadata only |
-
-## Requirements
-
-- Python 3.8+
-- [UnityPy](https://pypi.org/project/UnityPy/) (builder and server)
-- [Flask](https://pypi.org/project/Flask/) (server only)
-- A modern browser
-
-```bash
-python -m pip install unitypy flask
+```
+https://<owner>.github.io/<repository>/
 ```
 
-## Setup
+Every sprite, texture, sound and data file is decoded ahead of time and
+published, so the site can show you the actual asset and hand you the file:
 
-### 1. Get the bundles
+- A **thumbnail grid** of all 29,000 images — scroll and search to find what
+  you want
+- Click anything for the full-size image, playable audio or readable data
+- **Download** it as a PNG, WAV, TXT or JSON
 
-You need your own copy of the game's asset bundles, the internal asset bundles are inside the following folder path: `BaseAPKDirectory\assets\bin\Data`, extract the APK to find them. To get the external asset bundles, you would've needed to have installed Pocket Mortys and played before the game shutdown. If you did go to Android/Data/com.turner.pocketmorties/files/UnityCache/Shared and all those folders are the external asset bundles. You'd want to import the files named `__Data`. **This repository does not distribute game assets.**...
+It cannot *change* anything, because writing a bundle needs code a browser
+cannot run. That is what the desktop version is for.
 
-Or you can go to the AssetBundles folder on this repo and download them all there. 
+---
 
-### 2. Build the catalog (optional if using the prebuilt one)
+## The desktop version
 
-```bash
-python catalog_builder.py "C:/path/to/Internal Asset Bundles"
-```
+### You need
 
-If you omit the path, the script prompts for one.
+- Python 3.9 or newer
+- The bundles (the `AssetBundles/` folder here, or your own copy)
 
-Output:
-- `catalog.json` is written to the current working directory.
-- `catalog_progress.json` is written inside the bundle directory. It is the resume file; delete it to force a full rescan.
+### Run it
 
-A summary (valid bundles, category breakdown, total asset count) prints when the scan finishes.
+Double-click **`run.bat`** on Windows, or **`./run.sh`** on macOS and Linux.
+It installs what it needs, builds the catalog if there isn't one, and opens
+your browser.
 
-### 3. Open the viewer
-
-Open `catalog_viewer.html` in your browser and click **Load catalog.json**.
-
-This is enough for searching and filtering. Previews need the server.
-
-### 4. Start the preview server (optional)
+By hand:
 
 ```bash
-python catalog_server.py "C:/path/to/Internal Asset Bundles"
+python -m pip install -r requirements.txt
 ```
 
-The server listens on `http://localhost:7777`. The viewer detects it automatically and the status pill in the top bar switches from **Server offline** to connected.
+```bash
+python catalog_server.py AssetBundles
+```
 
-If you start the server without a path, you can set the bundle directory afterward through the viewer.
+That opens <http://127.0.0.1:7777>. Use that address rather than opening
+`catalog_viewer.html` from disk — served by the server, everything works with
+no extra setup.
 
-Keep `catalog.json` next to `catalog_server.py` or run the server from the folder containing it; the server also loads it on startup.
+### What it adds over the online version
 
-## API
+- Previews read live from the bundle, including types that are not published
+- **Replace** a `Texture2D`, `Sprite`, `TextAsset` or `MonoBehaviour` with a
+  file of your own
+- Stage as many replacements as you like, then **build** the bundle and
+  download it
+- Export a whole bundle's assets as a zip
+- Point it at your own bundles, which are marked **yours** so you can tell
+  them from the ones that shipped here
 
-The server exposes a small HTTP API on `127.0.0.1:7777`.
+---
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/status` | Server status, current bundle directory, loaded catalog size |
-| `GET /api/catalog` | The catalog the server loaded from disk |
-| `POST /api/set-dir` | Body `{"path": "..."}` sets the bundle directory |
-| `GET /api/preview` | Extracts an asset. Params: `bundle`, `type`, `name`, optional `path_id` |
+## Internal and external bundles
 
-## Catalog format
+This matters, because it decides where a modified file has to go back to.
+The viewer labels every bundle, and so does the catalog.
 
-`catalog.json` is a JSON array with one object per file:
+| | how many | what it is | its real name | where it lives |
+|---|---|---|---|---|
+| **in the APK** | 3,867 | a bare serialized file | `7a475521…` — a hash, **no extension** | `assets/bin/Data/` |
+| **downloaded** | 157 | a UnityFS bundle | `__data` | `UnityCache/Shared/<name>/<version>/__data` |
+
+The files here are renamed to something readable — `ASGLogo-7a475521….assetbundle`
+rather than `7a475521…` — so you can find things. The game does not know those
+names, so anything written back out is given its original name again.
+
+Downloaded bundles live at
+`Android/data/com.turner.pocketmorties/files/UnityCache/Shared/<name>/<version id>/__data`,
+and the `<version id>` folder is the one already on your device.
+
+---
+
+## Reading the game's data
+
+Most of what a modder actually wants — Morty stats, spawn points, shop
+contents, tuning values — lives in `MonoBehaviour` assets. Pocket Mortys is an
+IL2CPP build, so Unity stripped the information that says what fields those
+have, and every other asset viewer shows them as an unreadable blob.
+
+This one ships that information, recovered once from the game's own metadata
+and committed as `typetrees/pocketmortys.json`. So a spawn point reads as:
 
 ```json
 {
-  "filename": "0000000000000000f000000000000000",
-  "size": 336572,
-  "size_human": "328.7 KB",
-  "valid": true,
-  "original_name": "",
-  "category": "Shader",
-  "dominant_type": "Shader",
-  "unity_version": "",
-  "internal_paths": [],
-  "container_paths": [],
-  "asset_types": ["Material", "Shader", "Sprite", "Texture2D"],
-  "type_counts": {"Material": 4, "Texture2D": 7, "Shader": 8, "Sprite": 6},
-  "assets": [{"type": "Material", "name": "Default-Diffuse", "path_id": 1}],
-  "asset_count": 25,
-  "error": ""
+  "m_Name": "Dimension6SpawnPoints",
+  "PortalSpawn": { "x": 49, "y": 13 },
+  "ArenaSpawnPoint": { "x": 36, "y": 20 },
+  "RevivePoints": [ { "x": 89, "y": 49 }, { "x": 91, "y": 49 } ]
 }
 ```
 
-## Limitations
+Export that JSON, change it, import it back, and build the bundle.
 
-- Many bundles have no recoverable original name. They are identified only by hash and by their contents.
-- Many assets, shaders in particular, have empty names.
-- The preview endpoint matches by asset type plus name (or path ID). If several assets in one bundle share a name, you may get the first match.
-- Each preview request loads the whole bundle with UnityPy, so large bundles preview slowly.
-- Only the preview types listed above are supported. Meshes, animations, and materials show metadata only.
-- Bundles must be readable by UnityPy. Newer or unusual Unity versions or encrypted bundles may fail and be recorded as invalid.
+Rebuilding the dump for another game version needs Il2CppDumper output and a
+.NET runtime:
 
-## Security notes
+```bash
+python tools/make_typetrees.py path/to/DummyDll --unity 2022.3.62f1 --game-version 2.40.2
+```
 
-- The server binds to `127.0.0.1` only, but it sends `Access-Control-Allow-Origin: *` so a locally opened HTML file can reach it. Do not expose it beyond localhost.
-- `/api/set-dir` lets any page that can reach the server change the bundle directory. Run it only while you are using the viewer.
+---
+
+## Replacing an asset, start to finish
+
+1. Start the server and open the address it prints.
+2. Find the bundle, click it, click the asset.
+3. **Export** it and edit that file. Keep the same size — a different size is
+   scaled to fit, which rarely looks right.
+4. **Replace this asset…** and pick your edited file.
+5. The preview updates to what the rebuilt bundle will contain, and the
+   pending panel appears at the bottom right.
+6. Choose a compression mode and press **Build**. `LZ4` is what the game uses.
+7. Take the file from `exports/` and put it where the original came from.
+
+### Sprites live in a shared atlas
+
+Most sprites are a rectangle inside an atlas texture shared with dozens of
+others, and that atlas is often **in a different bundle**. Replacing a sprite
+paints your image into the atlas, so the file you get back is the atlas
+bundle, not the one you opened. The app tells you which file it wrote; that is
+the one to replace, and the other sprites in it are untouched.
+
+### What you lose
+
+Mobile textures are stored compressed (ASTC, ETC2). Writing one back
+re-encodes it, which is lossy, so colours shift very slightly even if you
+import exactly what you exported. The preview shows you the re-encoded
+result, so what you see is what you get.
+
+---
+
+## What is here
+
+| | |
+|---|---|
+| `bundle_io.py` | All the bundle handling: loading, dependency resolution, export, import, repacking. |
+| `catalog_builder.py` | Scans the bundles and writes `catalog.json`. |
+| `catalog_server.py` | Serves the viewer and does the reading, exporting and rebuilding. |
+| `catalog_viewer.html` | The interface, online and off. One file, no build step. |
+| `catalog.json` | What is in all 4,024 bundles: 130,958 assets. |
+| `typetrees/` | The MonoBehaviour field definitions described above. |
+| `tools/prerender.py` | Renders every asset for the online version. |
+| `tools/make_typetrees.py` | Rebuilds the type definitions from a DummyDll. |
+| `tests/` | `python -m pytest -q` |
+
+### catalog_builder.py
+
+```bash
+python catalog_builder.py AssetBundles -o catalog.json -j 8
+```
+
+`-j` workers (default: one per core, max 8) · `--fresh` rescan everything ·
+`--pretty` readable JSON. About 15 seconds for 4,000 bundles on 8 cores, and
+it resumes if interrupted.
+
+### catalog_server.py
+
+```bash
+python catalog_server.py AssetBundles --port 7777
+```
+
+`-c` catalog path · `-o` where built bundles go (default `exports/`) ·
+`--no-browser` · `--cors` to reach it from a viewer opened off disk ·
+`--no-token` to drop the access token.
+
+### tools/prerender.py
+
+```bash
+python tools/prerender.py AssetBundles -o site -j 8
+```
+
+`--only Texture2D,Sprite` to publish fewer types · `--resume` to keep what is
+already rendered · `--limit N` for a trial run. The full run takes a few
+minutes and produces about 75,000 files.
+
+---
+
+## HTTP API
+
+Everything binds to `127.0.0.1`. Apart from `/` and `/api/status`, requests
+carry an access token as `X-PM-Token` or `?token=`; the viewer the server
+hands you already has it.
+
+| | |
+|---|---|
+| `GET /api/status` | Directory, counts, pending edits, what can be imported. |
+| `GET /api/catalog` | The catalog the server loaded. |
+| `POST /api/set-dir` | `{"path": "..."}` — point it somewhere else. |
+| `GET /api/assets?bundle=` | What is in that bundle right now. |
+| `GET /api/preview?bundle=&path_id=` | One asset, inline. `raw=1` for undecoded bytes. |
+| `GET /api/export?bundle=&path_id=` | The same, as a download. |
+| `GET /api/export-bundle?bundle=&types=` | A zip of everything in it. |
+| `POST /api/import` | Multipart `bundle`, `path_id`, `file`. Stages a replacement. |
+| `GET /api/edits` · `DELETE /api/edits` | List or discard staged changes. |
+| `POST /api/build` | `{"bundle": "...", "pack": "lz4"}`. Writes the bundle. |
+| `GET /api/download?job=&name=` | Fetch a built file. |
+
+Note that `path_id` is a **string** everywhere, not a number. They are signed
+64-bit integers, and one asset in five has a value JavaScript cannot hold
+exactly; left as numbers they quietly round and stop identifying an asset.
+
+---
+
+## Known limits
+
+- **Audio cannot be replaced.** Clips are FMOD sample banks; they decode out
+  but cannot be built back. Exporting works.
+- **Meshes and animations** export but cannot be imported.
+- **Textures must keep their size**, because the sprite rectangles and UVs
+  around them assume the original.
+- **Tightly packed sprites** export masked to their outline; importing writes
+  the whole rectangle, which can bleed into a neighbour in the atlas.
+- **Two audio clips** rely on a `.resource` file; both are included here, but
+  a collection missing one will say so rather than failing silently.
+- Bundles must be readable by UnityPy. Anything encrypted or unusual is
+  recorded as invalid with the reason.
+
+## Related tools
+
+- [UABEA](https://github.com/nesrak1/UABEA) — the reference desktop tool for
+  Unity bundle modding. Broader than this, and not built around one game.
+- [AssetStudio](https://github.com/Perfare/AssetStudio) /
+  [AssetRipper](https://github.com/AssetRipper/AssetRipper) — excellent for
+  extraction and for recovering a whole project. Read-only.
+- [UnityPy](https://github.com/K0lb3/UnityPy) — the library this is built on.
+- [unity-bundle-tool](https://pypi.org/project/unity-bundle-tool/) — a UnityPy
+  extract/repack command line tool, same idea without the UI or the catalog.
+
+This one is for finding something in *Pocket Mortys* specifically, looking at
+it, and changing it, without installing a toolchain.
+
+## Safety
+
+- The server binds to `127.0.0.1` and never reaches the network.
+- Bundle names in requests are resolved against an index of the bundle
+  folder, so a request cannot read a file outside it.
+- Original bundles are never written to. Rebuilt files go to `exports/`.
 
 ## Disclaimer
 
-This is an unofficial, non-commercial fan project and is not affiliated with or endorsed by the rights holders of *Pocket Mortys* or *Rick and Morty*. All game assets, names, and characters belong to their respective owners. These tools contain no game assets; you must supply your own legitimately obtained copy of the data.
+An unofficial, non-commercial fan project, not affiliated with or endorsed by
+the rights holders of *Pocket Mortys* or *Rick and Morty*. All game assets,
+names and characters belong to their owners. The tools contain no game
+assets; you supply your own copy of the data.
 
 ## License
 
-Licensed under the [GNU General Public License v3.0](LICENSE). This covers the tools only, not any game content.
+[GNU General Public License v3.0](LICENSE), covering the tools only, not any
+game content.

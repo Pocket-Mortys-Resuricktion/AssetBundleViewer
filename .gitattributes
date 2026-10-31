@@ -1,0 +1,31 @@
+# Line endings are pinned per file type rather than left to each machine's
+# git settings. Without this, a checkout on Windows gives run.sh CRLF endings
+# and it fails on macOS and Linux with "bad interpreter: ...^M".
+
+*.sh    text eol=lf
+*.bat   text eol=crlf
+*.py    text eol=lf
+*.html  text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.txt   text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# The game data. Marked binary explicitly so git never tries to guess, never
+# rewrites a byte of it, and never offers a useless line diff.
+AssetBundles/** -text -diff
+*.assetbundle   -text -diff
+*.resource      -text -diff
+*.resS          -text -diff
+*.png           -text -diff
+*.webp          -text -diff
+*.wav           -text -diff
+*.ogg           -text -diff
+*.ttf           -text -diff
+*.otf           -text -diff
+
+# Generated and large; collapse it in pull request diffs.
+catalog.json              linguist-generated=true
+typetrees/*.json          linguist-generated=true
