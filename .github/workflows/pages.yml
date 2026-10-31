@@ -69,17 +69,26 @@ jobs:
 
       - name: Size report
         run: |
-          echo "### Published site" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          du -sh site >> "$GITHUB_STEP_SUMMARY"
-          find site -type f | wc -l | xargs echo "files:" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          # GitHub Pages publishes up to 1 GB. Fail loudly rather than
-          # discovering it at deploy time.
-          size=$(du -sm site | cut -f1)
-          echo "site is ${size} MB"
+          # What Pages counts is the size of the content, so measure that.
+          # Plain du reports disk usage, which rounds every one of the 75,000
+          # files up to a 4 KB block and overstates the total by about 160 MB.
+          size=$(du -sm --apparent-size site | cut -f1)
+          ondisk=$(du -sm site | cut -f1)
+          files=$(find site -type f | wc -l)
+
+          {
+            echo "### Published site"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Content | ${size} MB |"
+            echo "| On disk | ${ondisk} MB |"
+            echo "| Files | ${files} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "site content is ${size} MB across ${files} files"
           if [ "$size" -gt 1000 ]; then
-            echo "::error::The site is ${size} MB, over the 1 GB Pages limit."
+            echo "::error::The site is ${size} MB of content, over the 1 GB Pages limit."
             echo "::error::Publish fewer types, e.g. types: Texture2D,Sprite,AudioClip,TextAsset,MonoBehaviour"
             exit 1
           fi
