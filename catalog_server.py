@@ -27,6 +27,7 @@ import sys
 import threading
 import time
 import webbrowser
+import zipfile
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -376,22 +377,34 @@ def export_one():
 
 @app.route("/api/export-bundle")
 def export_bundle():
-    """Every asset in one bundle, as a zip."""
+    """
+    Assets from one bundle, as a zip.
+
+    With `path_ids`, only those: the viewer sends the ids its search and
+    filters left showing, so "export all" means what is on screen rather than
+    everything in the file.
+    """
     filename = wants("bundle")
     types = [t for t in (request.args.get("types") or "").split(",") if t]
     prefer = "raw" if request.args.get("raw") else "auto"
+    raw_ids = (request.args.get("path_ids") or "").strip()
+    path_ids = [p for p in raw_ids.split(",") if p] if raw_ids else None
     env = state.env_for(filename)
 
-    count = sum(1 for o in env.objects
-                if bundle_io.type_name(o) != "AssetBundle"
-                and (not types or bundle_io.type_name(o) in types))
+    if path_ids is not None:
+        count = len(path_ids)
+    else:
+        count = sum(1 for o in env.objects
+                    if bundle_io.type_name(o) != "AssetBundle"
+                    and (not types or bundle_io.type_name(o) in types))
     if count > state.max_zip_assets:
         return jsonify({
             "error": f"{count:,} assets is more than this will export in one go "
                      f"(limit {state.max_zip_assets:,}). Filter by type and try again.",
         }), 413
 
-    data, report = bundle_io.export_bundle_zip(env, types or None, prefer)
+    data, report = bundle_io.export_bundle_zip(env, types or None, prefer,
+                                               path_ids=path_ids)
     failed = sum(1 for row in report if not row["ok"])
     stem = bundle_io.safe_filename(os.path.splitext(filename)[0], "bundle")
     response = send_file(BytesIO(data), mimetype="application/zip",
@@ -399,6 +412,112 @@ def export_bundle():
     response.headers["X-PM-Exported"] = str(len(report) - failed)
     response.headers["X-PM-Failed"] = str(failed)
     return response
+
+
+@app.route("/api/export-selection", methods=["POST", "OPTIONS"])
+def export_selection():
+    """
+    One zip for a hand-picked set, which may span many bundles.
+
+    Body: {"items": [{"bundle": "...", "path_ids": ["1", ...]}, ...]}
+    A bundle with no path_ids means everything in it.
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    payload = request.get_json(silent=True) or {}
+    items = payload.get("items") or []
+    if not items:
+        return jsonify({"error": "Nothing was selected."}), 400
+    if len(items) > 500:
+        return jsonify({"error": f"{len(items)} bundles at once is too many; "
+                                 f"the limit is 500."}), 413
+
+    total = sum(len(i.get("path_ids") or []) for i in items)
+    if total > state.max_zip_assets:
+        return jsonify({
+            "error": f"{total:,} assets is more than this will export in one "
+                     f"go (limit {state.max_zip_assets:,}). Select fewer.",
+        }), 413
+
+    buf = BytesIO()
+    report: List[dict] = []
+    used: Dict[str, int] = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for item in items:
+            filename = str(item.get("bundle", "")).strip()
+            path = state.index.resolve_in_dir(filename) if state.index else None
+            if not path:
+                report.append({"bundle": filename, "ok": False,
+                               "error": "not found in the bundle directory"})
+                continue
+            # One folder per bundle, so a hundred files called icon.png do not
+            # land on top of each other.
+            folder = bundle_io.safe_filename(
+                os.path.splitext(os.path.basename(path))[0], "bundle")
+            try:
+                env = state.env_for(filename)
+                rows = bundle_io.write_assets(
+                    zf, env, path_ids=item.get("path_ids") or None,
+                    folder=folder, used=used)
+                for row in rows:
+                    row["bundle"] = filename
+                report.extend(rows)
+            except Exception as exc:
+                report.append({"bundle": filename, "ok": False,
+                               "error": f"{type(exc).__name__}: {exc}"})
+        zf.writestr("_export_report.json", json.dumps(report, indent=2))
+
+    failed = sum(1 for row in report if not row.get("ok"))
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    response = send_file(BytesIO(buf.getvalue()), mimetype="application/zip",
+                         as_attachment=True,
+                         download_name=f"pm_selection_{stamp}.zip")
+    response.headers["X-PM-Exported"] = str(len(report) - failed)
+    response.headers["X-PM-Failed"] = str(failed)
+    return response
+
+
+@app.route("/api/add-bundles", methods=["POST", "OPTIONS"])
+def add_bundles():
+    """
+    Copy bundle files the user picked into the bundle directory.
+
+    The server reads bundles from disk, so adding your own means putting them
+    where it is looking. They land under their own names and show up as
+    yours, because the shipped catalog has never heard of them.
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+    if not state.directory:
+        return jsonify({"error": "No bundle directory is set yet."}), 400
+
+    uploads = request.files.getlist("files")
+    if not uploads:
+        return jsonify({"error": "No files were uploaded."}), 400
+
+    added, skipped = [], []
+    target = Path(state.directory)
+    for upload in uploads:
+        name = bundle_io.safe_filename(os.path.basename(upload.filename or ""), "")
+        if not name:
+            skipped.append({"name": upload.filename or "?", "why": "no usable name"})
+            continue
+        destination = target / name
+        if destination.exists():
+            skipped.append({"name": name, "why": "already there"})
+            continue
+        try:
+            upload.save(str(destination))
+            added.append(name)
+        except Exception as exc:
+            skipped.append({"name": name, "why": f"{type(exc).__name__}: {exc}"})
+
+    if added:
+        state.index.refresh()
+        state._extra_stamp = None
+        state.cache.clear()
+    return jsonify({"ok": True, "added": added, "skipped": skipped,
+                    "bundle_count": len(state.index or [])})
 
 
 # -- Importing and building --------------------------------------------------

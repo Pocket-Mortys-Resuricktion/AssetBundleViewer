@@ -44,6 +44,7 @@ __all__ = [
     "describe",
     "export_asset",
     "export_bundle_zip",
+    "write_assets",
     "import_asset",
     "invalidate_caches",
     "load_typetrees",
@@ -683,6 +684,11 @@ def describe(path: str) -> dict:
                 entry["name_source"] = source
                 break
         entry["original_name"] = entry["derived_name"]  # kept for older catalogs
+        # The name the game knows this file by, which is how other bundles
+        # refer to it. Recorded so the viewer can match a dependency to the
+        # renamed file that holds it without re-deriving the rule.
+        entry["source_name"] = source_name(filename, entry["file_kind"])
+        entry["origin"] = bundle_origin(filename, entry["file_kind"])
 
         real = {k: v for k, v in type_counts.items() if k not in META_TYPES}
         pool = real or type_counts
@@ -940,46 +946,69 @@ def export_asset(obj: ObjectReader, prefer: str = "auto") -> Exported:
     return Exported(f"{name}.json", "application/json", payload, "json", note)
 
 
-def export_bundle_zip(env: Environment, types: Optional[Iterable[str]] = None,
-                      prefer: str = "auto") -> Tuple[bytes, List[dict]]:
+def write_assets(zf: zipfile.ZipFile, env: Environment,
+                 path_ids: Optional[Iterable[Any]] = None,
+                 types: Optional[Iterable[str]] = None,
+                 prefer: str = "auto", folder: str = "",
+                 used: Optional[Dict[str, int]] = None) -> List[dict]:
     """
-    Export every asset we can and return a zip plus a per-asset report.
+    Write assets from one bundle into an archive that is already open.
 
-    One asset failing never aborts the archive; the reason lands in the report
-    and in a ``_export_report.json`` inside the zip.
+    Separate from export_bundle_zip so a single zip can span several bundles,
+    which is what exporting a selection needs.
+
+    ``path_ids`` narrows it to exactly those assets, which is how "export what
+    I am looking at" works: the caller sends the ids its filters left showing
+    rather than getting the whole bundle regardless.
+
+    One asset failing never aborts the archive; the reason lands in the report.
     """
     wanted = set(types) if types else None
+    chosen = {str(p) for p in path_ids} if path_ids is not None else None
+    if used is None:
+        used = {}
     report: List[dict] = []
+
+    for obj in env.objects:
+        tname = type_name(obj)
+        if tname == "AssetBundle":
+            continue
+        if wanted is not None and tname not in wanted:
+            continue
+        if chosen is not None and str(obj.path_id) not in chosen:
+            continue
+
+        row = {"path_id": str(obj.path_id), "type": tname, "name": "",
+               "file": "", "ok": False, "error": ""}
+        try:
+            item = export_asset(obj, prefer=prefer)
+            row["name"] = os.path.splitext(item.filename)[0]
+            parts = [p for p in (folder, tname) if p]
+            arc = "/".join(parts + [item.filename])
+            # Two assets in one bundle may share a name.
+            count = used.get(arc.lower(), 0)
+            used[arc.lower()] = count + 1
+            if count:
+                stem, ext = os.path.splitext(arc)
+                arc = f"{stem}_{obj.path_id}{ext}"
+            zf.writestr(arc, item.data)
+            row["file"] = arc
+            row["ok"] = True
+        except Exception as exc:
+            row["error"] = f"{type(exc).__name__}: {exc}"
+        report.append(row)
+    return report
+
+
+def export_bundle_zip(env: Environment, types: Optional[Iterable[str]] = None,
+                      prefer: str = "auto",
+                      path_ids: Optional[Iterable[Any]] = None
+                      ) -> Tuple[bytes, List[dict]]:
+    """Everything from one bundle as a zip, plus a per-asset report."""
     buf = io.BytesIO()
-    used: Dict[str, int] = {}
-
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for obj in env.objects:
-            tname = type_name(obj)
-            if tname == "AssetBundle":
-                continue
-            if wanted is not None and tname not in wanted:
-                continue
-            row = {"path_id": obj.path_id, "type": tname, "name": "",
-                   "file": "", "ok": False, "error": ""}
-            try:
-                item = export_asset(obj, prefer=prefer)
-                row["name"] = os.path.splitext(item.filename)[0]
-                arc = f"{tname}/{item.filename}"
-                # Two assets in one bundle may share a name.
-                count = used.get(arc.lower(), 0)
-                used[arc.lower()] = count + 1
-                if count:
-                    stem, ext = os.path.splitext(arc)
-                    arc = f"{stem}_{obj.path_id}{ext}"
-                zf.writestr(arc, item.data)
-                row["file"] = arc
-                row["ok"] = True
-            except Exception as exc:
-                row["error"] = f"{type(exc).__name__}: {exc}"
-            report.append(row)
+        report = write_assets(zf, env, path_ids=path_ids, types=types, prefer=prefer)
         zf.writestr("_export_report.json", json.dumps(report, indent=2))
-
     return buf.getvalue(), report
 
 

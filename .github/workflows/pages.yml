@@ -15,6 +15,19 @@ name: Publish the online viewer
 # renders 75,000 files, which is not something to do on every push.
 
 on:
+  # Publishing used to be manual because a run re-rendered all 75,000 files.
+  # It no longer does: the rendered assets are cached, so a change to the
+  # viewer republishes in minutes. Only the files that change what is on the
+  # site trigger it, so ordinary commits still cost nothing.
+  push:
+    branches: [main]
+    paths:
+      - catalog_viewer.html
+      - catalog.json
+      - typetrees/**
+      - tools/prerender.py
+      - bundle_io.py
+      - .github/workflows/pages.yml
   workflow_dispatch:
     inputs:
       types:

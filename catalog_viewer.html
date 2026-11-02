@@ -22,7 +22,7 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .tab-count{font-size:10px;background:var(--surf2);border-radius:8px;padding:1px 6px;color:var(--muted)}.tab.active .tab-count{color:var(--accent)}
 #topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
 #load-btn{background:var(--accent);color:#000;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
-#file-input{display:none}
+#file-input,#bundle-input,#data-input{display:none}
 #srv-pill{font-size:11px;padding:3px 9px;border-radius:10px;border:1px solid;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px}
 #srv-pill.off{border-color:var(--border);color:var(--muted)}
 #srv-pill.on{border-color:var(--green);color:var(--green)}
@@ -173,6 +173,39 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .modal-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 14px;font-size:12px;cursor:pointer;margin-top:4px}
 .modal-close:hover{border-color:var(--accent);color:var(--accent)}
 
+/* ── SELECTION ── */
+#selbar{flex-shrink:0;display:none;align-items:center;gap:9px;padding:6px 14px;background:var(--surf2);border-bottom:1px solid var(--accent);font-size:12px}
+#selbar.vis{display:flex}
+#selbar .count{font-weight:700;color:var(--accent)}
+#selbar .grow{margin-left:auto;display:flex;gap:6px}
+.sel-box{position:absolute;top:5px;right:5px;width:19px;height:19px;border-radius:4px;border:1.5px solid var(--border);background:rgba(13,17,23,.82);display:none;align-items:center;justify-content:center;font-size:12px;color:transparent;z-index:3;cursor:pointer}
+.gcell:hover .sel-box,.list-row:hover .sel-box,body.selmode .sel-box{display:flex}
+.sel-box.on{background:var(--accent);border-color:var(--accent);color:#000}
+.gcell{position:relative}
+.list-row{position:relative}
+.list-row .sel-box{top:50%;transform:translateY(-50%);right:8px}
+.gcell.picked,.list-row.picked{outline:2px solid var(--accent);outline-offset:-2px;background:rgba(88,166,255,.10)}
+#sel-toggle.on{background:var(--surf3);color:var(--accent)}
+
+/* ── LOAD MENU ── */
+#load-wrap{position:relative}
+#load-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--surf);border:1px solid var(--border);border-radius:8px;min-width:250px;z-index:70;box-shadow:0 8px 26px rgba(0,0,0,.55);overflow:hidden}
+#load-menu.open{display:block}
+#load-menu button{display:block;width:100%;background:none;border:none;border-bottom:1px solid var(--surf2);color:var(--text);text-align:left;padding:8px 11px;font-size:12px;cursor:pointer}
+#load-menu button:last-child{border-bottom:none}
+#load-menu button:hover{background:var(--surf2);color:var(--accent)}
+#load-menu button span{display:block;font-size:10px;color:var(--muted);margin-top:1px}
+
+/* ── DEPENDENCIES ── */
+.dep-box{display:flex;flex-direction:column;gap:2px}
+.dep-row{display:flex;flex-direction:column;padding:3px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent}
+.dep-row:hover{background:var(--surf2);border-color:var(--border)}
+.dep-row.missing{cursor:default;opacity:.65}
+.dep-row.missing:hover{background:none;border-color:transparent}
+.dep-name{font-size:11px;color:var(--cyan);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dep-row.missing .dep-name{color:var(--red)}
+.dep-sub{font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* ── BANNER DISMISS, PAGE JUMP, DATA BUTTONS ── */
 #mode-note .note-x{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;flex-shrink:0}
 #mode-note .note-x:hover{color:var(--text)}
@@ -258,8 +291,17 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
     <div id="srv-pill" class="off" onclick="showModal()">
       <span class="srv-dot"></span><span id="srv-label">Server offline</span>
     </div>
-    <button id="load-btn" onclick="document.getElementById('file-input').click()">📂 Load catalog.json</button>
+    <div id="load-wrap">
+      <button id="load-btn" onclick="toggleLoadMenu(event)">📂 Open ▾</button>
+      <div id="load-menu">
+        <button onclick="pickBundleFolder()">📁 Set bundle folder…<span>where the server reads bundles from</span></button>
+        <button onclick="document.getElementById('bundle-input').click()">➕ Add bundle files…<span>copy your own in beside the stock ones</span></button>
+        <button onclick="document.getElementById('file-input').click()">🗂️ Load a catalog.json<span>a catalog built somewhere else</span></button>
+        <button onclick="document.getElementById('data-input').click()">★ Restore bookmarks &amp; notes<span>from a file you saved</span></button>
+      </div>
+    </div>
     <input type="file" id="file-input" accept=".json">
+    <input type="file" id="bundle-input" multiple>
   </div>
 </div>
 
@@ -273,6 +315,16 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 </div>
 
 <div id="mode-note"></div>
+
+<div id="selbar">
+  <span><span class="count" id="sel-n">0</span> selected</span>
+  <span id="sel-what" style="color:var(--muted);font-size:11px"></span>
+  <span class="grow">
+    <button class="tbtn" onclick="selectAllFiltered()">Select all shown</button>
+    <button class="tbtn" onclick="clearSelection()">Clear</button>
+    <button class="tbtn" style="border-color:var(--green);color:var(--green)" onclick="exportSelection()">⬇ Export selected</button>
+  </span>
+</div>
 
 <div id="main">
   <!-- Sidebar (always visible, content changes per tab) -->
@@ -333,6 +385,7 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
         <button id="vt-list" class="on" onclick="setView('list')" title="List">☰ List</button>
         <button id="vt-grid" onclick="setView('grid')" title="Thumbnails">▦ Grid</button>
       </div>
+      <button class="tbtn" id="sel-toggle" onclick="toggleSelectMode()" title="Pick several at once (or press s)">☑ Select</button>
       <button class="tbtn" id="btn-zip" onclick="exportBundleZip()" style="display:none" title="Download every asset in this bundle as a zip">⬇ Export all (.zip)</button>
       <button class="tbtn" onclick="exportF()" title="Save the rows you are looking at as JSON">⬇ Save list</button>
       <span id="rc">—</span>
@@ -490,6 +543,8 @@ let viewMode    = "list"; // list | grid
 let outerSearch = "";     // the bundle-tab search, kept while you are inside one
 let outerPage   = 1;      // and the page you were on
 let cursor      = -1;     // keyboard position within `filtered`
+let selMode     = false;  // checkboxes on, for picking several
+let picked      = new Map();  // key -> {bundle, asset|null}; asset null = whole bundle
 
 let bookmarks = new Set(JSON.parse(localStorage.getItem("pm_bm") || "[]"));
 let notes     = JSON.parse(localStorage.getItem("pm_notes") || "{}");
@@ -596,7 +651,7 @@ function showModeNote() {
   const el = document.getElementById("mode-note");
   if (!el) return;
   // Nothing to load online: the catalog ships with the page.
-  const load = document.getElementById("load-btn");
+  const load = document.getElementById("load-wrap");
   if (load) load.style.display = webMode ? "none" : "";
   if ((webMode && noteDismissed("online")) || (!webMode && noteDismissed("offline"))) {
     el.classList.remove("vis");
@@ -715,7 +770,79 @@ function initCatalog() {
   const allTypes = [...new Set(allAssets.map(a => a.type))].sort();
   ts.innerHTML = '<option value="">All Types</option>' + allTypes.map(t => `<option>${esc(t)}</option>`).join("");
 
+  buildDependencyIndex();
   af();
+}
+
+// ══════════════════════════════════════════════════════
+// WHICH BUNDLES NEED WHICH
+// ══════════════════════════════════════════════════════
+// A bundle names the files it needs by the name the game knows them by, not
+// the readable name they have here, so matching them up needs the index the
+// catalog records. Knowing what pulls a bundle in is how you find out where
+// a shared atlas is actually used.
+let bySourceName = new Map();   // "5618c2b1…" -> bundle
+let dependentsOf = new Map();   // "5618c2b1…" -> [bundles that list it]
+
+function buildDependencyIndex() {
+  bySourceName = new Map();
+  dependentsOf = new Map();
+  catalog.forEach(b => {
+    const key = (b.source_name || "").toLowerCase();
+    if (key && !bySourceName.has(key)) bySourceName.set(key, b);
+  });
+  catalog.forEach(b => {
+    (b.dependencies || []).forEach(dep => {
+      const key = String(dep).toLowerCase();
+      if (!dependentsOf.has(key)) dependentsOf.set(key, []);
+      dependentsOf.get(key).push(b);
+    });
+  });
+}
+
+function dependenciesOf(b) {
+  return (b.dependencies || []).map(dep => ({
+    name: dep,
+    bundle: bySourceName.get(String(dep).toLowerCase()) || null,
+  }));
+}
+function usedBy(b) {
+  return dependentsOf.get(String(b.source_name || "").toLowerCase()) || [];
+}
+
+function dependencyPanel(b) {
+  const needs = dependenciesOf(b);
+  const used = usedBy(b);
+  if (!needs.length && !used.length) return "";
+
+  const line = (label, hint) => `<div class="ds-title" title="${esc(hint)}">${label}</div>`;
+  let html = `<div class="dep-box">`;
+  if (needs.length) {
+    html += line(`Needs ${needs.length} other bundle${needs.length > 1 ? "s" : ""}`,
+      "Assets in this bundle point at these files. Without them, sprites and textures cannot be decoded.");
+    needs.forEach(d => {
+      html += d.bundle
+        ? `<div class="dep-row" onclick="jumpToBundle('${esc(d.bundle.filename)}')">
+             <span class="dep-name">${esc(d.bundle.derived_name || d.bundle.filename)}</span>
+             <span class="dep-sub">${esc(d.name)}</span></div>`
+        : `<div class="dep-row missing" title="Not in this collection">
+             <span class="dep-name">${esc(d.name)}</span>
+             <span class="dep-sub">not here</span></div>`;
+    });
+  }
+  if (used.length) {
+    html += line(`Used by ${used.length} bundle${used.length > 1 ? "s" : ""}`,
+      "These bundles point at this one, usually because their sprites live in a texture it holds.");
+    used.slice(0, 40).forEach(u => {
+      html += `<div class="dep-row" onclick="jumpToBundle('${esc(u.filename)}')">
+         <span class="dep-name">${esc(u.derived_name || u.filename)}</span>
+         <span class="dep-sub">${esc(u.category || "")}</span></div>`;
+    });
+    if (used.length > 40) {
+      html += `<div class="dep-sub" style="padding:3px 0">…and ${used.length - 40} more</div>`;
+    }
+  }
+  return html + `</div>`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -946,8 +1073,15 @@ function renderGrid(rows, bundleOf) {
         ? `<img loading="lazy" src="${esc(thumb)}" alt="${esc(a.name || a.type)}">`
         : `<span class="gicon">${TYPE_ICON[a.type] || "📄"}</span>`}</div>
       <div class="gname" title="${esc(a.name || "(unnamed)")}">${esc(a.name || "(unnamed)")}</div>
-      <div class="gsub">${esc(a.type)}${isEdited(b.filename, a.path_id) ? " · replaced" : ""}</div>`;
-    cell.addEventListener("click", () => selectAsset(key, cell, true));
+      <div class="gsub">${esc(a.type)}${isEdited(b.filename, a.path_id) ? " · replaced" : ""}</div>
+      ${checkboxHTML(key)}`;
+    if (picked.has(key)) cell.classList.add("picked");
+    wireSelectable(cell, key, b, a);
+    cell.addEventListener("click", ev => {
+      if (ev.target.closest(".sel-box")) return;
+      if (selMode) { togglePick(key, b, a); return; }
+      selectAsset(key, cell, true);
+    });
     el.appendChild(cell);
   });
   renderPag(rows.length);
@@ -1022,8 +1156,15 @@ function renderBundleGrid(list) {
         ? `<img loading="lazy" src="${esc(thumb)}" alt="${esc(b.derived_name || b.filename)}">`
         : `<span class="gicon">📦</span>`}</div>
       <div class="gname" title="${esc(b.derived_name || b.filename)}">${esc(b.derived_name || "(unnamed)")}</div>
-      <div class="gsub" style="color:${c.dot}">${esc(b.category || "Unknown")} · ${b.asset_count || 0}</div>`;
-    cell.addEventListener("click", () => { selBundle = b; enterBundle(b); });
+      <div class="gsub" style="color:${c.dot}">${esc(b.category || "Unknown")} · ${b.asset_count || 0}</div>
+      ${checkboxHTML(bundleKey(b))}`;
+    if (picked.has(bundleKey(b))) cell.classList.add("picked");
+    wireSelectable(cell, bundleKey(b), b, null);
+    cell.addEventListener("click", ev => {
+      if (ev.target.closest(".sel-box")) return;
+      if (selMode) { togglePick(bundleKey(b), b, null); return; }
+      selBundle = b; enterBundle(b);
+    });
     el.appendChild(cell);
   });
   renderPag(list.length);
@@ -1051,8 +1192,15 @@ function renderBundles(list) {
       <div class="lc center"><span class="cat-badge" style="background:${c.bg};color:${c.dot}">${esc(b.category || "Unknown")}</span></div>
       <div class="lc ra"><span class="size-txt">${esc(b.size_human || "?")}</span></div>
       <div class="lc ra center"><span class="size-txt">${b.asset_count || 0}</span></div>
+      ${checkboxHTML(bundleKey(b))}
     `;
-    row.addEventListener("click", () => { selBundle = b; enterBundle(b); });
+    if (picked.has(bundleKey(b))) row.classList.add("picked");
+    wireSelectable(row, bundleKey(b), b, null);
+    row.addEventListener("click", ev => {
+      if (ev.target.closest(".sel-box")) return;
+      if (selMode) { togglePick(bundleKey(b), b, null); return; }
+      selBundle = b; enterBundle(b);
+    });
     el.appendChild(row);
   });
   renderPag(list.length);
@@ -1080,10 +1228,15 @@ function renderAssets(assets) {
         <span class="apid">path_id: ${a.path_id}</span>
       </div>
       <div class="lc center"><span class="type-badge">${esc(a.type)}</span></div>
+      ${checkboxHTML(key)}
     `;
-
-    // Always auto-preview on click — server on = fetch, server off = show type info
-    row.addEventListener("click", () => selectAsset(key, row, true));
+    if (picked.has(key)) row.classList.add("picked");
+    wireSelectable(row, key, inBundle, a);
+    row.addEventListener("click", ev => {
+      if (ev.target.closest(".sel-box")) return;
+      if (selMode) { togglePick(key, inBundle, a); return; }
+      selectAsset(key, row, true);
+    });
 
     el.appendChild(row);
   });
@@ -1118,8 +1271,20 @@ function renderFlat(list) {
         <span class="apid">${esc(a.bundle)}</span>
       </div>
       <div class="lc ra"><span class="size-txt">${esc(a.bsize)}</span></div>
+      ${checkboxHTML(a.key)}
     `;
-    row.addEventListener("click", () => selectAsset(a.key, row, PREV_TYPES[a.type] && serverOn));
+    if (picked.has(a.key)) row.classList.add("picked");
+    wireSelectable(row, a.key, (assetMap.get(a.key) || {}).bundle,
+                   (assetMap.get(a.key) || {}).asset);
+    row.addEventListener("click", ev => {
+      if (ev.target.closest(".sel-box")) return;
+      if (selMode) {
+        const e = assetMap.get(a.key) || {};
+        togglePick(a.key, e.bundle, e.asset); return;
+      }
+      selectAsset(a.key, row, canShow(
+      (assetMap.get(a.key) || {}).bundle || {}, (assetMap.get(a.key) || {}).asset || a));
+    });
     el.appendChild(row);
   });
   renderPag(list.length);
@@ -1175,6 +1340,8 @@ function openPreview(b, a, doFetch = false) {
     </div>
   `;
 
+  body += dependencyPanel(b);
+
   // Jump button when in asset tab
   if (!inBundleView) {
     body += `<button class="jump-btn" onclick="jumpToBundle('${esc(b.filename)}')">📦 Open bundle in Bundle Browser</button>`;
@@ -1196,7 +1363,10 @@ function openPreview(b, a, doFetch = false) {
   // Render area
   const prender = document.getElementById("prender");
   const have = canShow(b, a);
-  const canPrev = webMode ? !!previewInfo(b, a) : !!PREV_TYPES[a.type];
+  // With a server there is no list of previewable types: it falls back to a
+  // typetree dump for anything it cannot render otherwise, so Material, Mesh,
+  // GameObject and the rest all have something worth showing.
+  const canPrev = webMode ? !!previewInfo(b, a) : serverOn;
 
   if (have && canPrev) {
     fetchPreview(b, a, prender);
@@ -1272,7 +1442,11 @@ async function fetchPreview(b, asset, prender) {
       // Try to pretty-print JSON
       let display = text;
       try { display = JSON.stringify(JSON.parse(text), null, 2); } catch(e) {}
-      prender.innerHTML = `<pre>${esc(display.substring(0, 12000))}${display.length > 12000 ? "\n…truncated" : ""}</pre>`;
+      const LIMIT = 60000;
+      const cut = display.length > LIMIT;
+      prender.innerHTML = `<pre>${esc(display.substring(0, LIMIT))}${
+        cut ? `\n\n… ${(display.length - LIMIT).toLocaleString()} more characters. `
+            + `Use Export to get the whole thing.` : ""}</pre>`;
     }
   } catch(e) {
     prender.innerHTML = `<div class="pmsg err">❌ Request failed: ${esc(e.message)}</div>`;
@@ -1335,6 +1509,7 @@ function renderPag(total) {
   // Every render path ends here, so it is the one place that reliably knows
   // the rows have just been rebuilt and the keyboard highlight needs redrawing.
   if (cursor >= 0) setTimeout(paintCursor, 0);
+  if (picked.size || selMode) setTimeout(paintSelection, 0);
 
   const pages = Math.ceil(total / PG);
   const pag   = document.getElementById("pagination"); pag.innerHTML = "";
@@ -1452,11 +1627,22 @@ function exportAsset(raw) {
   window.location.href = url;
 }
 
+// "Export all" means everything the filters left showing, not everything in
+// the file: if you searched for "morty", that is what you asked for.
 function exportBundleZip() {
   if (!inBundle) return;
-  const n = (inBundle.assets || []).length;
-  if (n > 400 && !confirm(`Export all ${n.toLocaleString()} assets in this bundle? That can take a while.`)) return;
-  window.location.href = apiURL("/api/export-bundle", { bundle: inBundle.filename });
+  const total = (inBundle.assets || []).length;
+  const shown = filtered.length;
+  const narrowed = shown < total;
+  const what = narrowed
+    ? `Export the ${shown.toLocaleString()} assets your filters left showing?\n`
+      + `(${total.toLocaleString()} in the bundle altogether.)`
+    : `Export all ${total.toLocaleString()} assets in this bundle?`;
+  if ((narrowed || total > 400) && !confirm(what)) return;
+
+  const params = { bundle: inBundle.filename };
+  if (narrowed) params.path_ids = filtered.map(a => a.path_id).join(",");
+  window.location.href = apiURL("/api/export-bundle", params);
 }
 
 function pickReplacement() {
@@ -1592,6 +1778,224 @@ async function discardEdits() {
 }
 
 // ══════════════════════════════════════════════════════
+// PICKING SEVERAL AT ONCE
+// ══════════════════════════════════════════════════════
+// A tick box appears on hover, or on everything once select mode is on. On a
+// touch screen there is no hover, so a long press turns the mode on and picks
+// what you were holding.
+function bundleKey(b) { return "bundle::" + b.filename; }
+
+function checkboxHTML(key) {
+  return `<span class="sel-box${picked.has(key) ? " on" : ""}" data-key="${esc(key)}"
+    role="checkbox" aria-checked="${picked.has(key)}" title="Select">✓</span>`;
+}
+
+function wireSelectable(node, key, bundle, asset) {
+  const box = node.querySelector(".sel-box");
+  if (box) {
+    box.addEventListener("click", ev => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (!selMode) setSelectMode(true);
+      togglePick(key, bundle, asset);
+    });
+  }
+  let timer = null;
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  node.addEventListener("touchstart", () => {
+    cancel();
+    timer = setTimeout(() => {
+      timer = null;
+      if (!selMode) setSelectMode(true);
+      togglePick(key, bundle, asset);
+      if (navigator.vibrate) navigator.vibrate(12);
+    }, 500);
+  }, { passive: true });
+  ["touchend", "touchmove", "touchcancel"].forEach(e =>
+    node.addEventListener(e, cancel, { passive: true }));
+}
+
+function togglePick(key, bundle, asset) {
+  if (picked.has(key)) picked.delete(key);
+  else picked.set(key, { bundle, asset: asset || null });
+  paintSelection();
+}
+
+function setSelectMode(on) {
+  selMode = on;
+  document.body.classList.toggle("selmode", on);
+  const btn = document.getElementById("sel-toggle");
+  if (btn) btn.className = "tbtn" + (on ? " on" : "");
+  if (!on) picked.clear();
+  paintSelection();
+}
+function toggleSelectMode() { setSelectMode(!selMode); }
+
+function paintSelection() {
+  const bar = document.getElementById("selbar");
+  bar.classList.toggle("vis", picked.size > 0 || selMode);
+  setText("sel-n", picked.size);
+  let bundles = 0, assets = 0;
+  picked.forEach(v => { if (v.asset) assets++; else bundles++; });
+  setText("sel-what", [
+    bundles ? `${bundles} whole bundle${bundles > 1 ? "s" : ""}` : "",
+    assets ? `${assets} asset${assets > 1 ? "s" : ""}` : "",
+  ].filter(Boolean).join(" · "));
+
+  document.querySelectorAll(".sel-box").forEach(box => {
+    const on = picked.has(box.dataset.key);
+    box.classList.toggle("on", on);
+    box.setAttribute("aria-checked", on);
+    const row = box.closest(".gcell, .list-row");
+    if (row) row.classList.toggle("picked", on);
+  });
+}
+
+// "Shown" means what the filters left, not what fits on this page.
+function selectAllFiltered() {
+  if (!selMode) setSelectMode(true);
+  filtered.forEach(row => {
+    if (!inBundle && activeTab === "bundles") {
+      picked.set(bundleKey(row), { bundle: row, asset: null });
+    } else if (inBundle) {
+      picked.set(inBundle.filename + "::" + row.path_id, { bundle: inBundle, asset: row });
+    } else {
+      const e = assetMap.get(row.key) || {};
+      if (e.bundle && e.asset) picked.set(row.key, { bundle: e.bundle, asset: e.asset });
+    }
+  });
+  paintSelection();
+  af(true);
+}
+
+function clearSelection() { picked.clear(); paintSelection(); af(true); }
+
+// One zip for the lot, grouped by bundle so same-named files do not collide.
+async function exportSelection() {
+  if (!picked.size) return;
+  if (webMode) return exportSelectionOffline();
+  if (!serverOn) { alert("Exporting needs the local server."); return; }
+
+  const byBundle = new Map();
+  picked.forEach(v => {
+    if (!v.bundle) return;
+    const name = v.bundle.filename;
+    if (!byBundle.has(name)) byBundle.set(name, { bundle: name, path_ids: [], all: false });
+    const entry = byBundle.get(name);
+    if (v.asset) entry.path_ids.push(String(v.asset.path_id));
+    else entry.all = true;
+  });
+  const items = [...byBundle.values()].map(e =>
+    e.all ? { bundle: e.bundle } : { bundle: e.bundle, path_ids: e.path_ids });
+
+  const bar = document.getElementById("selbar");
+  const old = bar.querySelector(".grow").innerHTML;
+  bar.querySelector(".grow").innerHTML = `<span style="color:var(--muted)">Building the zip…</span>`;
+  try {
+    const r = await api("/api/export-selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      alert(j.error || "Export failed."); return;
+    }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `pm_selection_${new Date().toISOString().slice(0,10)}.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+  } catch (e) {
+    alert("Could not reach the server: " + e.message);
+  } finally {
+    bar.querySelector(".grow").innerHTML = old;
+  }
+}
+
+// Online there is no server to build a zip, so fetch the published files and
+// zip them here. Kept modest, because it all goes through memory.
+async function exportSelectionOffline() {
+  const files = [];
+  picked.forEach((v, key) => {
+    if (!v.asset || !v.bundle) return;
+    const url = assetURL(v.bundle, v.asset);
+    if (url) files.push({ url, name: `${v.bundle.derived_name || v.bundle.filename}/`
+      + `${(v.asset.name || v.asset.type)}.${previewInfo(v.bundle, v.asset).e}` });
+  });
+  if (!files.length) {
+    alert("Nothing in the selection has a published file. Whole bundles can only be exported with the desktop version.");
+    return;
+  }
+  if (files.length > 300) {
+    alert(`${files.length} files is more than the online version will zip at once.\nSelect fewer, or use the desktop version.`);
+    return;
+  }
+  // Downloading one at a time is the only option without a zip library, and
+  // browsers rate-limit that, so tell the user what is about to happen.
+  if (!confirm(`Download ${files.length} files?\n\nThe online version saves them one by one; `
+      + `your browser may ask to allow multiple downloads.`)) return;
+  for (const f of files) {
+    const a = document.createElement("a");
+    a.href = f.url;
+    a.download = f.name.replace(/[\/]/g, "_");
+    document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 220));
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// THE OPEN MENU
+// ══════════════════════════════════════════════════════
+function toggleLoadMenu(ev) {
+  if (ev) ev.stopPropagation();
+  document.getElementById("load-menu").classList.toggle("open");
+}
+document.addEventListener("click", () => {
+  const menu = document.getElementById("load-menu");
+  if (menu) menu.classList.remove("open");
+});
+
+async function pickBundleFolder() {
+  if (!serverOn) { alert("This needs the local server running."); return; }
+  const now = srvInfo.bundle_dir || "";
+  const path = prompt("Folder the server should read bundles from:", now);
+  if (!path || path === now) return;
+  try {
+    const r = await api("/api/set-dir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) { alert(data.error || "Could not set that folder."); return; }
+    alert(`Now reading from:\n${data.bundle_dir}\n${data.bundle_count} files.`);
+    chkSrv();
+  } catch (e) { alert("Could not reach the server: " + e.message); }
+}
+
+async function addBundleFiles(files) {
+  if (!serverOn) { alert("This needs the local server running."); return; }
+  const form = new FormData();
+  [...files].forEach(f => form.append("files", f));
+  try {
+    const r = await api("/api/add-bundles", { method: "POST", body: form });
+    const data = await r.json();
+    if (!r.ok) { alert(data.error || "Could not add those files."); return; }
+    const skipped = (data.skipped || []).map(s => `${s.name} (${s.why})`).join("\n");
+    alert(`Added ${data.added.length} file${data.added.length === 1 ? "" : "s"}.`
+      + (skipped ? `\n\nSkipped:\n${skipped}` : "")
+      + `\n\nThey appear marked "yours".`);
+    chkSrv();
+  } catch (e) { alert("Could not reach the server: " + e.message); }
+}
+
+document.getElementById("bundle-input").addEventListener("change", function (e) {
+  if (e.target.files.length) addBundleFiles(e.target.files);
+  this.value = "";
+});
+
+// ══════════════════════════════════════════════════════
 // KEYBOARD
 // ══════════════════════════════════════════════════════
 // Arrow keys walk the current list or grid, across page boundaries. In the
@@ -1676,6 +2080,18 @@ document.addEventListener("keydown", ev => {
       break;
     case "/":          ev.preventDefault(); document.getElementById("search").focus(); break;
     case "g":          setView(viewMode === "grid" ? "list" : "grid"); break;
+    case "s":          toggleSelectMode(); break;
+    case " ":
+      if (cursor >= 0 && filtered[cursor]) {
+        ev.preventDefault();
+        if (!selMode) setSelectMode(true);
+        const row = filtered[cursor];
+        if (!inBundle && activeTab === "bundles") togglePick(bundleKey(row), row, null);
+        else if (inBundle) togglePick(inBundle.filename + "::" + row.path_id, inBundle, row);
+        else { const e = assetMap.get(row.key) || {}; togglePick(row.key, e.bundle, e.asset); }
+        af(true);
+      }
+      break;
   }
 });
 
