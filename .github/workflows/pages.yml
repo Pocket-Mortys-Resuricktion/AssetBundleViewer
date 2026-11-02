@@ -59,12 +59,21 @@ jobs:
         if: ${{ inputs.rebuild_catalog }}
         run: python catalog_builder.py AssetBundles -o catalog.json --fresh
 
+      # Rendering is the slow part, and it only changes when the bundles or
+      # the renderer change. A fix to the viewer should not cost half an hour,
+      # so keep the rendered assets and reuse them.
+      - name: Restore rendered assets
+        uses: actions/cache@v4
+        with:
+          path: site
+          key: site-${{ hashFiles('catalog.json', 'tools/prerender.py', 'bundle_io.py', 'typetrees/*.json') }}-${{ inputs.types }}
+
       - name: Render every asset
         run: |
           if [ -n "${{ inputs.types }}" ]; then
-            python tools/prerender.py AssetBundles -o site --only "${{ inputs.types }}"
+            python tools/prerender.py AssetBundles -o site --resume --only "${{ inputs.types }}"
           else
-            python tools/prerender.py AssetBundles -o site
+            python tools/prerender.py AssetBundles -o site --resume
           fi
 
       - name: Size report

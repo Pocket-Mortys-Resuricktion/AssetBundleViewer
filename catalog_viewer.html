@@ -173,6 +173,17 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .modal-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 14px;font-size:12px;cursor:pointer;margin-top:4px}
 .modal-close:hover{border-color:var(--accent);color:var(--accent)}
 
+/* ── BANNER DISMISS, PAGE JUMP, DATA BUTTONS ── */
+#mode-note .note-x{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;flex-shrink:0}
+#mode-note .note-x:hover{color:var(--text)}
+.pgjump{display:flex;align-items:center;gap:4px;margin-left:6px;font-size:11px;color:var(--muted)}
+.pgjump input{width:52px;background:var(--surf2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:3px 5px;text-align:center;outline:none}
+.pgjump input:focus{border-color:var(--accent)}
+.mini-btn{flex:1;background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:4px;font-size:10px;cursor:pointer}
+.mini-btn:hover{border-color:var(--accent);color:var(--accent)}
+.kbd-hint{font-size:10px;color:var(--surf3);padding:2px 0}
+.gcell.cursor,.list-row.cursor{outline:2px solid var(--accent);outline-offset:-2px}
+
 /* ── GRID VIEW ── */
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;padding:10px 12px;overflow-y:auto;align-content:start}
 .gcell{background:var(--surf);border:1px solid var(--border);border-radius:7px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:5px;min-width:0}
@@ -273,6 +284,16 @@ body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
       <label class="fck"><input type="checkbox" id="f-bm" onchange="af()"> ★ Bookmarked <span class="cnt" id="fc-bm">0</span></label>
       <label class="fck"><input type="checkbox" id="f-nt" onchange="af()"> Has notes <span class="cnt" id="fc-nt">0</span></label>
     </div>
+    <div class="fg">
+      <div class="ft">Your data</div>
+      <div style="display:flex;gap:4px">
+        <button class="mini-btn" onclick="saveMyData()" title="Download your bookmarks and notes">⬇ Save</button>
+        <button class="mini-btn" onclick="document.getElementById('data-input').click()" title="Restore from a saved file">⬆ Restore</button>
+      </div>
+      <div class="kbd-hint">Kept in this browser only</div>
+      <input type="file" id="data-input" accept=".json" style="display:none">
+    </div>
+
     <!-- Category (both tabs) -->
     <div class="fg" id="sb-cats">
       <div class="ft">Category <span class="ft-clear" onclick="clearCats()">clear</span></div>
@@ -466,6 +487,9 @@ let lastBuild   = null;   // most recent build result, shown in the tray
 let previews    = null;   // previews.json, when assets were rendered ahead of time
 let webMode     = false;  // published copy: prerendered assets, no server
 let viewMode    = "list"; // list | grid
+let outerSearch = "";     // the bundle-tab search, kept while you are inside one
+let outerPage   = 1;      // and the page you were on
+let cursor      = -1;     // keyboard position within `filtered`
 
 let bookmarks = new Set(JSON.parse(localStorage.getItem("pm_bm") || "[]"));
 let notes     = JSON.parse(localStorage.getItem("pm_notes") || "{}");
@@ -558,18 +582,37 @@ setInterval(chkSrv, 8000);
 })();
 
 // Say plainly which version this is and what it can do.
+// Dismissed banners stay dismissed, per kind, so the online notice does not
+// nag on every visit once it has been read.
+function dismissNote(kind) {
+  try { localStorage.setItem("pm_note_" + kind, "1"); } catch(e) {}
+  document.getElementById("mode-note").classList.remove("vis");
+}
+function noteDismissed(kind) {
+  try { return localStorage.getItem("pm_note_" + kind) === "1"; } catch(e) { return false; }
+}
+
 function showModeNote() {
   const el = document.getElementById("mode-note");
   if (!el) return;
+  // Nothing to load online: the catalog ships with the page.
+  const load = document.getElementById("load-btn");
+  if (load) load.style.display = webMode ? "none" : "";
+  if ((webMode && noteDismissed("online")) || (!webMode && noteDismissed("offline"))) {
+    el.classList.remove("vis");
+    return;
+  }
   if (webMode) {
     el.innerHTML = `<span class="badge">Online</span> Browse and download every asset.
       Replacing assets and rebuilding bundles needs the desktop version &mdash;
-      <a href="https://github.com/Pocket-Mortys-Resuricktion/AssetBundleViewer/releases" target="_blank" rel="noopener">get it from Releases</a>.`;
+      <a href="https://github.com/Pocket-Mortys-Resuricktion/AssetBundleViewer/releases" target="_blank" rel="noopener">get it from Releases</a>.
+      <button class="note-x" title="Dismiss" onclick="dismissNote('online')">✕</button>`;
     el.classList.add("vis");
   } else if (!CFG.served && !serverOn) {
     el.innerHTML = `<span class="badge">Catalog only</span> Opened from disk with no server,
       so there is nothing to preview from. Run <code>python catalog_server.py AssetBundles</code>
-      and use the address it prints.`;
+      and use the address it prints.
+      <button class="note-x" title="Dismiss" onclick="dismissNote('offline')">✕</button>`;
     el.classList.add("vis");
   } else {
     el.classList.remove("vis");
@@ -701,6 +744,10 @@ function switchTab(t) {
 // BUNDLE DRILL-IN
 // ══════════════════════════════════════════════════════
 async function enterBundle(b) {
+  // Remember what you searched for, so coming back out does not throw away
+  // the list you were working through.
+  outerSearch = document.getElementById("search").value;
+  outerPage = page;
   inBundle = b; selBundle = b; liveAssets = null;
   document.getElementById("breadcrumb").classList.add("vis");
   setText("bc-current", b.derived_name || "(unnamed bundle)");
@@ -735,11 +782,13 @@ function exitBundle() {
   inBundle = null; selBundle = null; liveAssets = null;
   document.getElementById("btn-zip").style.display = "none";
   document.getElementById("breadcrumb").classList.remove("vis");
-  document.getElementById("search").value = "";
+  document.getElementById("search").value = outerSearch;
   document.getElementById("search").placeholder = "Search bundles — name, hash, asset name, path…";
   document.getElementById("sb-bonly").style.display = "flex";
   document.getElementById("sb-cats").style.display  = "flex";
-  closePreview(); af();
+  closePreview();
+  page = outerPage || 1;
+  af(true);
 }
 
 // ══════════════════════════════════════════════════════
@@ -756,7 +805,7 @@ function togType(cb) { if (cb.checked) activeTypes.add(cb.value); else activeTyp
 function clearTypes() { activeTypes.clear(); document.querySelectorAll("#type-list input").forEach(c => c.checked = false); af(); }
 
 function af(keepPage) {
-  if (!keepPage) page = 1;
+  if (!keepPage) { page = 1; cursor = -1; }
   if (!catalog.length) return;
   const q  = document.getElementById("search").value.toLowerCase().trim();
   const sk = document.getElementById("sort-sel").value;
@@ -938,8 +987,51 @@ function setHead(mode) {
   }
 }
 
+// A bundle's picture is the first asset in it that has one.
+function bundleThumb(b) {
+  if (webMode) {
+    if (!previews || b._i === undefined) return null;
+    const forBundle = previews.bundles[b._i];
+    if (!forBundle) return null;
+    for (const a of (b.assets || [])) {
+      const e = forBundle[String(a.path_id)];
+      if (e && e.w) return `thumbs/${b._i}/${a.path_id}.webp`;
+    }
+    return null;
+  }
+  if (!serverOn) return null;
+  const first = (b.assets || []).find(a => PREV_TYPES[a.type] === "image");
+  return first ? apiURL("/api/preview", { bundle: b.filename, path_id: first.path_id }) : null;
+}
+
+function renderBundleGrid(list) {
+  const start = (page - 1) * PG;
+  const slice = list.slice(start, start + PG);
+  document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
+  const el = document.getElementById("grid");
+  el.innerHTML = "";
+  slice.forEach((b, i) => {
+    const c = cc(b.category || "Unknown");
+    const thumb = bundleThumb(b);
+    const cell = document.createElement("div");
+    cell.className = "gcell" + (selBundle === b ? " sel" : "")
+      + (cursor === start + i ? " cursor" : "");
+    cell.dataset.hash = b.filename;
+    cell.innerHTML = `
+      <div class="gthumb">${thumb
+        ? `<img loading="lazy" src="${esc(thumb)}" alt="${esc(b.derived_name || b.filename)}">`
+        : `<span class="gicon">📦</span>`}</div>
+      <div class="gname" title="${esc(b.derived_name || b.filename)}">${esc(b.derived_name || "(unnamed)")}</div>
+      <div class="gsub" style="color:${c.dot}">${esc(b.category || "Unknown")} · ${b.asset_count || 0}</div>`;
+    cell.addEventListener("click", () => { selBundle = b; enterBundle(b); });
+    el.appendChild(cell);
+  });
+  renderPag(list.length);
+}
+
 function renderBundles(list) {
-  showGrid(false);   // the grid shows assets, and this view shows bundles
+  if (viewMode === "grid") { showGrid(true); return renderBundleGrid(list); }
+  showGrid(false);
   const start = (page - 1) * PG;
   const slice = list.slice(start, start + PG);
   document.getElementById("empty-msg").style.display = slice.length ? "none" : "block";
@@ -1240,6 +1332,10 @@ function saveNote() {
 // PAGINATION
 // ══════════════════════════════════════════════════════
 function renderPag(total) {
+  // Every render path ends here, so it is the one place that reliably knows
+  // the rows have just been rebuilt and the keyboard highlight needs redrawing.
+  if (cursor >= 0) setTimeout(paintCursor, 0);
+
   const pages = Math.ceil(total / PG);
   const pag   = document.getElementById("pagination"); pag.innerHTML = "";
   if (pages <= 1) return;
@@ -1253,6 +1349,24 @@ function renderPag(total) {
   const inf = document.createElement("span"); inf.className = "pginfo"; inf.textContent = `${page}/${pages}`; pag.appendChild(inf);
   const next = document.createElement("button"); next.className = "pgbtn"; next.textContent = "Next →"; next.disabled = page === pages;
   next.onclick = () => { page++; af(true); }; pag.appendChild(next);
+
+  // With 1,600 pages, clicking Next is not a way to get anywhere.
+  const jump = document.createElement("span");
+  jump.className = "pgjump";
+  jump.innerHTML = `go to <input type="number" min="1" max="${pages}" value="${page}"
+    aria-label="Page number" title="Type a page and press Enter"> of ${pages}`;
+  const box = jump.querySelector("input");
+  const go = () => {
+    const want = Math.max(1, Math.min(pages, parseInt(box.value, 10) || page));
+    if (want !== page) { page = want; af(true); }
+    else { box.value = page; }
+  };
+  box.addEventListener("keydown", ev => {
+    ev.stopPropagation();
+    if (ev.key === "Enter") { ev.preventDefault(); go(); }
+  });
+  box.addEventListener("change", go);
+  pag.appendChild(jump);
 }
 
 // ══════════════════════════════════════════════════════
@@ -1476,6 +1590,152 @@ async function discardEdits() {
   document.getElementById("tray-toggle").classList.remove("show");
   if (inBundle) loadLiveAssets(inBundle);
 }
+
+// ══════════════════════════════════════════════════════
+// KEYBOARD
+// ══════════════════════════════════════════════════════
+// Arrow keys walk the current list or grid, across page boundaries. In the
+// asset views the preview follows the cursor, which is the point: you hold a
+// key and watch the sprites go by.
+function gridColumns() {
+  const el = document.getElementById("grid");
+  const cols = getComputedStyle(el).gridTemplateColumns;
+  return Math.max(1, (cols || "").split(" ").filter(Boolean).length);
+}
+
+function moveCursor(delta) {
+  if (!filtered.length) return;
+  const was = cursor < 0 ? (page - 1) * PG - delta : cursor;
+  const next = Math.max(0, Math.min(filtered.length - 1, was + delta));
+  cursor = next;
+  const wantPage = Math.floor(next / PG) + 1;
+  if (wantPage !== page) { page = wantPage; af(true); }
+  else { paintCursor(); }
+  const inAssets = inBundle || activeTab === "assets";
+  if (inAssets) openAtCursor();
+  else scrollCursorIntoView();
+}
+
+function cursorNodes() {
+  return document.querySelectorAll(
+    document.getElementById("grid").style.display === "none" ? "#list .list-row" : "#grid .gcell");
+}
+
+function paintCursor() {
+  const nodes = cursorNodes();
+  nodes.forEach(n => n.classList.remove("cursor"));
+  const node = nodes[cursor - (page - 1) * PG];
+  if (node) { node.classList.add("cursor"); node.scrollIntoView({ block: "nearest" }); }
+}
+function scrollCursorIntoView() { paintCursor(); }
+
+function openAtCursor() {
+  paintCursor();
+  const row = filtered[cursor];
+  if (!row) return;
+  const b = inBundle || (assetMap.get(row.key) || {}).bundle;
+  const a = inBundle ? row : (assetMap.get(row.key) || {}).asset;
+  if (!b || !a) return;
+  const node = cursorNodes()[cursor - (page - 1) * PG];
+  if (node) selectAsset(b.filename + "::" + a.path_id, node, true);
+}
+
+function activateCursor() {
+  const row = filtered[cursor];
+  if (!row) return;
+  if (!inBundle && activeTab === "bundles") { selBundle = row; enterBundle(row); }
+  else openAtCursor();
+}
+
+document.addEventListener("keydown", ev => {
+  const tag = (ev.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") {
+    if (ev.key === "Escape") ev.target.blur();
+    return;
+  }
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (!catalog.length) return;
+
+  const grid = document.getElementById("grid").style.display !== "none";
+  const cols = grid ? gridColumns() : 1;
+  switch (ev.key) {
+    case "ArrowDown":  ev.preventDefault(); moveCursor(cols); break;
+    case "ArrowUp":    ev.preventDefault(); moveCursor(-cols); break;
+    case "ArrowRight": if (grid) { ev.preventDefault(); moveCursor(1); } break;
+    case "ArrowLeft":  if (grid) { ev.preventDefault(); moveCursor(-1); } break;
+    case "PageDown":   ev.preventDefault(); moveCursor(PG); break;
+    case "PageUp":     ev.preventDefault(); moveCursor(-PG); break;
+    case "Home":       ev.preventDefault(); cursor = 0; page = 1; af(true); paintCursor(); break;
+    case "End":        ev.preventDefault(); cursor = filtered.length - 1;
+                       page = Math.ceil(filtered.length / PG); af(true); paintCursor(); break;
+    case "Enter":      ev.preventDefault(); activateCursor(); break;
+    case "Escape":
+      ev.preventDefault();
+      if (document.getElementById("preview").classList.contains("open")) closePreview();
+      else if (inBundle) exitBundle();
+      break;
+    case "/":          ev.preventDefault(); document.getElementById("search").focus(); break;
+    case "g":          setView(viewMode === "grid" ? "list" : "grid"); break;
+  }
+});
+
+// ══════════════════════════════════════════════════════
+// YOUR BOOKMARKS AND NOTES
+// ══════════════════════════════════════════════════════
+// They live in this browser's storage, which clearing site data wipes, so
+// there has to be a way to get them out and back.
+function saveMyData() {
+  const payload = {
+    format: "pm-catalog-userdata",
+    version: 1,
+    saved: new Date().toISOString(),
+    bookmarks: [...bookmarks],
+    notes: notes,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `pm_bookmarks_notes_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function restoreMyData(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    let data;
+    try { data = JSON.parse(ev.target.result); }
+    catch (e) { alert("That file is not valid JSON."); return; }
+    if (!data || (!Array.isArray(data.bookmarks) && !data.notes)) {
+      alert("That does not look like a saved bookmarks and notes file.");
+      return;
+    }
+    // Merge rather than replace, so restoring onto a browser that already has
+    // some of your work does not throw the rest away.
+    const beforeB = bookmarks.size, beforeN = Object.keys(notes).length;
+    (data.bookmarks || []).forEach(f => bookmarks.add(f));
+    Object.entries(data.notes || {}).forEach(([k, v]) => {
+      if (v && !notes[k]) notes[k] = v;
+      else if (v && notes[k] && notes[k] !== v) notes[k] = notes[k] + "\n---\n" + v;
+    });
+    try {
+      localStorage.setItem("pm_bm", JSON.stringify([...bookmarks]));
+      localStorage.setItem("pm_notes", JSON.stringify(notes));
+    } catch (e) { alert("Could not save to this browser's storage."); }
+    setText("s-bm", bookmarks.size);
+    setText("fc-bm", bookmarks.size);
+    setText("fc-nt", Object.keys(notes).length);
+    af(true);
+    alert(`Restored. Bookmarks ${beforeB} → ${bookmarks.size}, `
+        + `notes ${beforeN} → ${Object.keys(notes).length}.`);
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById("data-input").addEventListener("change", function (e) {
+  if (e.target.files[0]) restoreMyData(e.target.files[0]);
+  this.value = "";
+});
 
 // ══════════════════════════════════════════════════════
 // HELPERS
