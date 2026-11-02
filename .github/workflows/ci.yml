@@ -19,7 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # Pinned, not ubuntu-latest: that label moved to Ubuntu 26, which
+        # ships no Python 3.9 build, so the 3.9 job could not even start.
+        os: [ubuntu-24.04, windows-latest]
         python: ['3.9', '3.13']
 
     steps:
@@ -84,7 +86,7 @@ jobs:
 
   lint:
     name: Syntax and style
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
