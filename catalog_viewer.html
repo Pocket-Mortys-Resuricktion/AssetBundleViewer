@@ -1080,7 +1080,8 @@ function af(keepPage) {
       return true;
     });
     filtered.sort((a, b) => {
-      if (a.name && !b.name) return -1; if (!a.name && b.name) return 1;
+      const ra = nameRank(a.name), rb = nameRank(b.name);
+      if (ra !== rb) return ra - rb;
       return (a.name || "").localeCompare(b.name || "");
     });
     filtered = visualFirst(filtered, row => (assetMap.get(row.key) || {}).bundle || {});
@@ -1140,6 +1141,16 @@ function hasThumb(bundle, asset) {
   return webMode ? !!thumbURL(bundle, asset)
                  : (serverOn && PREV_TYPES[asset.type] === "image");
 }
+// Sorting the asset tab by name alone opened it on the 317 assets whose
+// names are only digits or punctuation — a crowd of GameObjects called "1"
+// to "6", and three called "?". They are real, but they are nobody's idea of
+// a first page, so a name that contains no letter sorts after one that does,
+// and no name at all sorts last.
+function nameRank(n) {
+  if (!n) return 2;
+  return /[a-z]/i.test(n) ? 0 : 1;
+}
+
 // This used to apply to the grid only, so the same tab was ordered two
 // different ways depending on the view. In the list that meant page one of
 // All Assets was the assets whose names sort first — a few hundred
