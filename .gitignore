@@ -87,6 +87,10 @@ env/
 .coverage
 htmlcov/
 
+# Release archives. dist/ is where make_release.py puts them, but a stray
+# 180 MB zip anywhere else should not be committed either.
+*.zip
+
 # ─────────────────────────────────────────────────────────────────────
 #  Editors and operating systems
 # ─────────────────────────────────────────────────────────────────────

@@ -4,14 +4,15 @@ Build the archives that go on a GitHub release.
 
 Two of them, because two kinds of person download this:
 
-  ...-tools.zip      the programs only, about 17 MB. For anyone who already
+  ...-tools.zip      the programs only, about 1.7 MB. For anyone who already
                      has the bundles, or who cloned the repository.
-  ...-complete.zip   the programs and every bundle, about 1.1 GB. Download,
-                     unzip, double-click run.bat. Nothing else needed.
+  ...-complete.zip   the programs and every bundle: 180 MB zipped, about
+                     1.1 GB once unzipped. Download, unzip, double-click
+                     run.bat. Nothing else needed.
 
 Usage:
-    python tools/make_release.py --version v1.0.0
-    python tools/make_release.py --version v1.0.0 --tools-only
+    python tools/make_release.py --version v1.1
+    python tools/make_release.py --version v1.1 --tools-only
 """
 
 from __future__ import annotations
@@ -114,10 +115,10 @@ def build(out: Path, name: str, with_bundles: bool) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build release archives.")
-    parser.add_argument("--version", default="v1.0.0")
-    parser.add_argument("-o", "--output", default="release")
+    parser.add_argument("--version", default="v1.1")
+    parser.add_argument("-o", "--output", default="dist")
     parser.add_argument("--tools-only", action="store_true",
-                        help="skip the 1.1 GB archive")
+                        help="skip the 180 MB archive")
     args = parser.parse_args()
 
     out_dir = Path(args.output).expanduser().resolve()
