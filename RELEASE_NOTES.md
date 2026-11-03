@@ -1,4 +1,4 @@
-# v1.2 — Works on a phone, notes per asset, and a real zip online
+# v1.2 — Works on a phone, real categories, and a real zip online
 
 Look inside every asset bundle in *Pocket Mortys*, export anything you find,
 and put your own version back in.
@@ -75,6 +75,41 @@ phone — where the preview fills the screen — the notes and dependencies were
 left moving in a sliver. The panel is now one scroller on narrow screens,
 with only the asset's name staying put. On a desktop the picture still stays
 in view beside the details, which is the useful behaviour there.
+
+### Bundles are filed by what they are, not what is in them
+
+A bundle's category used to be the commonest asset type inside it, which put
+**45% of the game in one pile called "Texture"** — a fact about Pocket Mortys
+being a 2D game, not a way to find anything. It also duplicated the Asset
+Type checkboxes, which answer that question exactly rather than by guess.
+
+Bundles are now filed by subject, read from the name and, for the downloaded
+ones, their path in the game's own asset tree: **Characters**, **World &
+buildings**, **UI**, **Battle & attacks**, **Multiplayer**, **Shop &
+crafting**, **Effects**, **Localisation**, **Sprite atlas** and more — 19
+groups, the largest holding 20%. Every asset's exact type is still recorded
+and still filterable, so nothing is lost.
+
+Scenery named after a character stays scenery: the Morty Lab's walls and
+signs are World & buildings, while Snowball, who is a Morty, is not filed
+under snow.
+
+### Marks you can see and reach
+
+- **A star on the left of every row**, bundle or asset, marks it where it
+  sits — no need to open it first.
+- **Asset marks are amber, bundle marks are violet**, the same two colours on
+  the stars, the note dots, the buttons and the panel headings, so you can
+  tell at a glance which kind you are looking at.
+- **The select checkbox has a column of its own**, between the name and
+  whatever follows. It used to float over the size column and appear only on
+  hover, which on a touch screen meant it could not be reached at all. Star
+  and checkbox are now in the same place on every kind of row.
+- **Grid thumbnails say where the bundle lives** — *in the APK*, *downloaded*
+  or *yours* — across the top, so you can tell before opening it.
+- **An ✕ in the search box** clears it in one tap.
+- **"Identified only" is hidden** when every bundle already has a name, which
+  is the case for the shipped collection, where it filtered nothing.
 
 ### Fixes
 

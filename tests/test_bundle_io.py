@@ -83,10 +83,62 @@ def test_describe_names_and_categorises(index):
     entry = bundle_io.describe(index.resolve_in_dir(TEXTURE))
     assert entry["valid"] is True
     assert entry["derived_name"] == "support_icon"
-    assert entry["category"] == "Texture"
+    # Filed by what it is for, not by what type is inside it: this one holds
+    # a Texture2D, but an icon is part of the interface.
+    assert entry["category"] == "UI"
+    assert entry["dominant_type"] == "Texture2D"
     assert entry["asset_count"] == 1
     # The viewer reads these two; a catalog without them shows nothing.
     assert entry["derived_name"] and entry["all_asset_names"]
+
+
+# -- Categories --------------------------------------------------------------
+
+def test_categorise_reads_the_name():
+    cases = [
+        ("MortyBigBrain", "Characters"),
+        ("BethTheDestroyer_Down_4", "Characters"),
+        ("2_1+Sprite+SiameseHost+Shadow", "Characters"),
+        ("MPArenaModeInfo", "Multiplayer"),
+        ("GachaPurchaseCell", "Shop & crafting"),
+        ("AttackButtonPopGolden", "Battle & attacks"),
+        ("TreeLargeTex", "World & buildings"),
+        ("PauseBtnItem", "UI"),
+        ("Sprite_ZH_TW", "Localisation"),
+        ("sactx-0-256x512-ETC2-WorldDefault-b4aaf91f", "Sprite atlas"),
+    ]
+    for name, expected in cases:
+        assert bundle_io.categorise(name, [], "Texture2D") == expected, name
+
+
+def test_categorise_separates_scenery_from_the_characters_it_is_named_after():
+    # Each of these matches both rules, and each went to the wrong pile
+    # before the order and the word boundaries were sorted out.
+    assert bundle_io.categorise("BuildingMortyLabSignTex", [], "Texture2D") == "World & buildings"
+    assert bundle_io.categorise("AnimeCityTerrainMat", [], "Material") == "World & buildings"
+    # "_Front" with no frame number is the end of a bridge, not a walk cycle.
+    assert bundle_io.categorise("Bridge_End_Front", [], "Mesh") == "World & buildings"
+    # ...but Snowball is a Morty, and must not be caught by "snow".
+    assert bundle_io.categorise("4_1+Snowball+Sprite+Shadow", [], "GameObject") == "Characters"
+    assert bundle_io.categorise("SnowTile", [], "Texture2D") == "World & buildings"
+
+
+def test_categorise_prefers_the_games_own_paths():
+    paths = ["assets/resourceassetbundles/anime101/characters/x/xback.png"]
+    assert bundle_io.categorise("anime101", paths, "Texture2D") == "Characters"
+
+
+def test_categorise_does_not_read_language_codes_out_of_paths():
+    # " it " turns up inside .../audio_sfx/... and once filed a bundle of
+    # sound effects under Localisation. Paths get their own, specific rules.
+    paths = ["assets/resourceassetbundles/preload/audio_sfx/sfx/buffattack.wav"]
+    assert bundle_io.categorise("preload", paths, "AudioClip") == "Audio"
+
+
+def test_categorise_falls_back_to_the_type():
+    assert bundle_io.categorise("", [], "Mesh") == "3D models"
+    assert bundle_io.categorise("zzz", [], "AudioClip") == "Audio"
+    assert bundle_io.categorise("zzz", [], "") == "Other"
 
 
 def test_describe_records_dependencies(index):

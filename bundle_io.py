@@ -106,6 +106,111 @@ CATEGORY_MAP = {
     "TerrainData": "Terrain",
 }
 
+# -- What a bundle is about --------------------------------------------------
+#
+# Categorising a bundle by the commonest type of thing inside it put 45% of
+# the game in one pile called "Texture", which says only that Pocket Mortys is
+# a 2D game. It also duplicated the asset-type filter, which already answers
+# "show me the Texture2Ds" exactly rather than by guess.
+#
+# So a bundle is filed by what it is *for*, read from its name and, where the
+# game gave us one, its path in the game's own asset tree. That is a guess,
+# and a name like "Background" could fairly sit in two piles — but a wrong
+# guess among fifteen useful piles beats a right one among four useless ones.
+# The exact type of every asset is still recorded in `dominant_type` and
+# `asset_types`, so nothing is lost by filing it this way.
+
+#: Checked first, against container paths. Only the 157 downloaded bundles
+#: have them, but a folder name from the game's own tree beats any guess.
+BUNDLE_PATH_RULES = [
+    ("Audio",             r"/audio|\.wav|\.mp3|\.ogg|/sfx/|/music/"),
+    ("Characters",        r"/morties/|/characters/|/npcs?/|/enemies/|/bosses/"),
+    ("World & buildings", r"/environment|/buildings?/|/tiles?/|/props?/|/world/|/levels?/"),
+    ("UI",                r"/ui/|/hud/|/interface/"),
+]
+
+#: Checked against the bundle's own name, and only the name. Two-letter
+#: language codes make that essential: " it " appears inside paths such as
+#: .../audio_sfx/... and would file a bundle of sound effects under
+#: Localisation.
+BUNDLE_NAME_RULES = [
+    ("Sprite atlas",      r"^sactx-|spriteatlas"),
+    ("Localisation",      r"(?:^|[_+\- ])(?:en|de|es|fr|it|jp|ja|ko|zh|cn|tw|pt|br|ru|tr|nl|pl)"
+                          r"(?:[_+\- ](?:tw|cn|br))?$|locali[sz]|language|translat"),
+    # Scenery named after a character is still scenery, so the words that can
+    # only mean built environment are checked before the character names.
+    # Without this, every one of the Morty Lab's walls and signs filed itself
+    # under Characters.
+    ("World & buildings", r"building|terrain|tileset|city|bridge|fence|sidewalk|street|rooftop"
+                          r"|\broof\b|\bwall|\bfloor|setdressing"),
+    # The direction rule needs the frame number that a walk cycle always has:
+    # plain "_Front" also ends names like Bridge_End_Front.
+    ("Characters",        r"morty|rick|summer|beth|jerry|character|anime|npc|trainer|salesman|boss|enemy"
+                          r"|antagonist|alien|bird ?person|squanch|meeseeks|gazorpazorp|snowball|xenon"
+                          r"|[_+\- ](?:down|up|side|back|front)[_+\- ]\d+$"
+                          r"|^\d+_\d+[_+\- ]"),
+    ("Multiplayer",       r"^mp[a-z0-9]|multiplayer|tourn|arena|raid|leaderboard|pvp|versus|season|guild|clan"),
+    ("Shop & crafting",   r"gacha|coupon|purchase|iap|shop|store|sale|price|coin|ticket|wallet|currency"
+                          r"|offer|craft|recipe|blueprint|reward|chest|loot|pack\b"),
+    ("Battle & attacks",  r"attack|battle|combat|damage|crit|\bko\b|heal|revive|debuff|buff|status|faint"
+                          r"|capture|catch|absorb|move\b|skill|ability|turn\b"),
+    # The rest of the scenery, after the character names have had their turn:
+    # these words are ordinary enough to appear in a character's name.
+    ("World & buildings", r"tree|rock|grass|tile|cliff|water|house|door|lab\b|dimension|portal|sign"
+                          r"|bush|dirt|window|spawn|\bmap\b|world|ground|\bforest\b|\bcave\b"
+                          r"|\bsnow\b|\bsand\b|\blava\b|\bpark\b"),
+    ("Effects",           r"\bfx\b|effect|particle|glow|spark|smoke|explosion|trail|flash|shine|shadow"),
+    ("UI",                r"btn|button|cell|\bbar\b|icon|overlay|popup|panel|screen|title|holder|\btab\b"
+                          r"|toggle|slider|menu|hud|dialog|tooltip|badge|banner|background|header|footer"
+                          r"|scroll|cursor|arrow|frame|mask|alert|pause|box\b|list\b|grid\b|page\b"),
+    ("Animation",         r"^anim[_\- ]?\d*$|animation|\banim\b"),
+]
+
+#: Last resort, when the name says nothing at all: fall back to what is in it.
+TYPE_CATEGORY = {
+    "AudioClip": "Audio",
+    "Shader": "Shaders & materials",
+    "ComputeShader": "Shaders & materials",
+    "Material": "Shaders & materials",
+    "Font": "Fonts",
+    "AnimationClip": "Animation",
+    "AnimatorController": "Animation",
+    "Animator": "Animation",
+    "Mesh": "3D models",
+    "MeshFilter": "3D models",
+    "SkinnedMeshRenderer": "3D models",
+    "TextAsset": "Text & data",
+    "MonoBehaviour": "Script data",
+    "MonoScript": "Script data",
+    "ScriptableObject": "Script data",
+    "GameObject": "Prefabs",
+    "Sprite": "Sprites",
+    "Texture2D": "Textures",
+    "Cubemap": "Textures",
+    "RenderTexture": "Textures",
+    "PreloadData": "Engine",
+    "PlayerSettings": "Engine",
+    "AssetBundle": "Engine",
+}
+
+_PATH_RULES = [(label, re.compile(pat)) for label, pat in BUNDLE_PATH_RULES]
+_NAME_RULES = [(label, re.compile(pat)) for label, pat in BUNDLE_NAME_RULES]
+
+
+def categorise(derived_name: str, container_paths: Iterable[str],
+               dominant_type: str) -> str:
+    """What this bundle is for, as opposed to what file types are in it."""
+    joined = " ".join(container_paths or []).lower()
+    if joined:
+        for label, pattern in _PATH_RULES:
+            if pattern.search(joined):
+                return label
+    name = (derived_name or "").lower()
+    for label, pattern in _NAME_RULES:
+        if pattern.search(name):
+            return label
+    return TYPE_CATEGORY.get(dominant_type or "", "Other")
+
 #: Files this toolkit writes next to the bundles, which are not bundles.
 SIDECAR_FILES = {"catalog_progress.json", "catalog.json", "Thumbs.db", ".DS_Store"}
 
@@ -695,7 +800,8 @@ def describe(path: str) -> dict:
         if pool:
             dominant = max(pool, key=lambda k: pool[k])
             entry["dominant_type"] = dominant
-            entry["category"] = CATEGORY_MAP.get(dominant, dominant)
+            entry["category"] = categorise(
+                entry["derived_name"], entry["container_paths"], dominant)
 
     except Exception as exc:
         entry["error"] = f"{type(exc).__name__}: {exc}"
