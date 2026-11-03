@@ -1,4 +1,4 @@
-# v1.0 — Browse it online, mod it offline
+# v1.1 — Dependencies, bulk export, and the small things that were in the way
 
 Look inside every asset bundle in *Pocket Mortys*, export anything you find,
 and put your own version back in.
@@ -12,13 +12,58 @@ below are for.
 
 ---
 
+## What's new since v1.0
+
+Everything here landed in **both** versions unless it says otherwise.
+
+### Finding things
+
+- **Dependencies.** Every bundle now lists the bundles it pulls from and the
+  bundles that pull from it. This is the fastest way to find where a sprite
+  really lives: 646 bundles reach into `globalgamemanagers.assets` alone.
+- **Keyboard navigation.** Arrows move, Enter opens, Escape backs out,
+  Page Up/Down and Home/End jump, `/` goes to the search box, `g` switches
+  grid and list, `s` turns on selecting and Space ticks what you are on.
+- **Jump to a page** by typing its number, instead of clicking next 40 times.
+- **Grid or list anywhere.** The toggle used to appear only inside a bundle;
+  it now works on the bundle list too, with thumbnails.
+- **Your search survives.** Opening a bundle no longer wipes what you typed.
+- **Save and restore your bookmarks** as a file, so they outlive the tab.
+
+### Exporting
+
+- **Select many, export once.** Tick the box in the corner of anything —
+  assets or whole bundles — and export the lot as a single zip, one folder per
+  bundle. On a touch screen, press and hold to start selecting.
+- **"Export all" now means what is on screen.** Search `morty` and it exports
+  the Mortys, not all 130,958 assets. Previously the filter was ignored.
+
+### Desktop only
+
+- **Open ▾** replaces the lone "Load catalog.json" button. It can point the
+  server at a different bundle folder, copy your own files in beside the stock
+  ones — bundles, or the side-car files that belong with them, such as `.resS`
+  and `.resource` — load a catalog built elsewhere, or restore your bookmarks.
+- **JSON previews work again** for `Material`, `Mesh`, `GameObject`,
+  `SpriteAtlas` and `AnimationClip`. The viewer was hiding previews the server
+  was perfectly willing to produce. Long ones now show 60,000 characters
+  instead of 12,000.
+
+### Online only
+
+- **The explainer banner can be dismissed**, and stays dismissed.
+- **No "Load catalog.json" button**, which online was asking you to load
+  something already loaded.
+
+---
+
 ## Which download do I want?
 
-**`PocketMortysBundleCatalog-v1.0.0-complete.zip`** — everything, bundles
+**`PocketMortysBundleCatalog-v1.1-complete.zip`** — everything, bundles
 included. Unzip it and double-click `run.bat` (Windows) or run `./run.sh`
 (macOS, Linux). Nothing else to find or set up.
 
-**`PocketMortysBundleCatalog-v1.0.0-tools.zip`** — the programs only, for
+**`PocketMortysBundleCatalog-v1.1-tools.zip`** — the programs only, for
 anyone who already has their own bundles or who cloned the repository.
 Point it at your folder:
 

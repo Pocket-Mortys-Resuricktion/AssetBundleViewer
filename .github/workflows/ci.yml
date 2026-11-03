@@ -3,9 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore: ['AssetBundles/**', 'README.md', 'LICENSE']
+    paths-ignore: ['AssetBundles/**', 'README.md', 'RELEASE_NOTES.md', 'LICENSE']
   pull_request:
-    paths-ignore: ['AssetBundles/**', 'README.md', 'LICENSE']
+    paths-ignore: ['AssetBundles/**', 'README.md', 'RELEASE_NOTES.md', 'LICENSE']
   workflow_dispatch:
 
 concurrency:
