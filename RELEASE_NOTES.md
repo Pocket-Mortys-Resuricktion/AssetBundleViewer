@@ -1,4 +1,4 @@
-# v1.1 — Dependencies, bulk export, and the small things that were in the way
+# v1.2 — Works on a phone, and a real zip online
 
 Look inside every asset bundle in *Pocket Mortys*, export anything you find,
 and put your own version back in.
@@ -12,58 +12,73 @@ below are for.
 
 ---
 
-## What's new since v1.0
+## What's new since v1.1
 
-Everything here landed in **both** versions unless it says otherwise.
+All of it applies to **both** versions unless it says otherwise.
 
-### Finding things
+### It fits on the screen now
 
-- **Dependencies.** Every bundle now lists the bundles it pulls from and the
-  bundles that pull from it. This is the fastest way to find where a sprite
-  really lives: 646 bundles reach into `globalgamemanagers.assets` alone.
-- **Keyboard navigation.** Arrows move, Enter opens, Escape backs out,
-  Page Up/Down and Home/End jump, `/` goes to the search box, `g` switches
-  grid and list, `s` turns on selecting and Space ticks what you are on.
-- **Jump to a page** by typing its number, instead of clicking next 40 times.
-- **Grid or list anywhere.** The toggle used to appear only inside a bundle;
-  it now works on the bundle list too, with thumbnails.
-- **Your search survives.** Opening a bundle no longer wipes what you typed.
-- **Save and restore your bookmarks** as a file, so they outlive the tab.
+The page had no mobile viewport tag and not one media query, so a phone laid
+it out at 980px and scaled the result down: the edges were cut off and the
+pager sat below the bottom of a page that could not scroll. On a narrow
+window the desktop did a smaller version of the same thing.
 
-### Exporting
+- The layout is **responsive**. Below 900px the filter sidebar becomes a
+  drawer behind a **Filters** button and the preview opens as a full panel,
+  so the list always gets the whole width.
+- The toolbar, the top bar and the pager **wrap** instead of clipping
+  whatever did not fit.
+- Page height uses the part of the screen you can actually see, so the pager
+  is always reachable.
+- On phones the table keeps the two columns that identify a row and drops the
+  rest, rather than squeezing four into 360px.
 
-- **Select many, export once.** Tick the box in the corner of anything —
-  assets or whole bundles — and export the lot as a single zip, one folder per
-  bundle. On a touch screen, press and hold to start selecting.
-- **"Export all" now means what is on screen.** Search `morty` and it exports
-  the Mortys, not all 130,958 assets. Previously the filter was ignored.
+### Buttons look like buttons
 
-### Desktop only
+The two tabs were borderless text, which is why people could not find **All
+Assets**. They are proper buttons now, and the one you are on is filled in.
+Every other flat outline — the toolbar, the pager, the asset actions, the
+sidebar — is filled and shifts when pressed.
 
-- **Open ▾** replaces the lone "Load catalog.json" button. It can point the
-  server at a different bundle folder, copy your own files in beside the stock
-  ones — bundles, or the side-car files that belong with them, such as `.resS`
-  and `.resource` — load a catalog built elsewhere, or restore your bookmarks.
-- **JSON previews work again** for `Material`, `Mesh`, `GameObject`,
-  `SpriteAtlas` and `AnimationClip`. The viewer was hiding previews the server
-  was perfectly willing to produce. Long ones now show 60,000 characters
-  instead of 12,000.
+### A real zip online
 
-### Online only
+Exporting a selection online used to save files one at a time, which browsers
+throttle and warn about, and it refused outright above 300 of them. The page
+now **writes a proper zip itself** — no library, nothing to install:
 
-- **The explainer banner can be dismissed**, and stays dismissed.
-- **No "Load catalog.json" button**, which online was asking you to load
-  something already loaded.
+- **No file limit.** The ceiling is memory, and you get a warning before a
+  very large selection rather than a refusal.
+- Picking a **whole bundle** online now exports every published asset in it,
+  instead of telling you it cannot.
+- Progress is shown while it fetches, and anything that fails is reported
+  rather than silently missing.
+
+### Fixes
+
+- The page **opened in grid while the List button was highlighted**, because
+  the saved view was read without telling the toolbar. Both come from one
+  place now.
+- Online now **starts on All Assets in grid**, which is what the published
+  copy is for.
+- Online no longer says **"Server offline"**. It checked for a server before
+  working out that it was the online copy, then kept asking every eight
+  seconds for one that was never coming.
+- **All Assets in list mode** opened on a few hundred GameObjects called "1"
+  to "6" and three called "?", because only the grid put assets with a
+  picture first. Both views use the same order now.
+- **Deselecting the last item leaves select mode**, and so does **Clear**.
+
+---
 
 ---
 
 ## Which download do I want?
 
-**`PocketMortysBundleCatalog-v1.1-complete.zip`** — everything, bundles
+**`PocketMortysBundleCatalog-v1.2-complete.zip`** — everything, bundles
 included. Unzip it and double-click `run.bat` (Windows) or run `./run.sh`
 (macOS, Linux). Nothing else to find or set up.
 
-**`PocketMortysBundleCatalog-v1.1-tools.zip`** — the programs only, for
+**`PocketMortysBundleCatalog-v1.2-tools.zip`** — the programs only, for
 anyone who already has their own bundles or who cloned the repository.
 Point it at your folder:
 
