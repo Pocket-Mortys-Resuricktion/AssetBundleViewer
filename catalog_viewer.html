@@ -101,6 +101,10 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
 .list-row{display:grid;border-bottom:1px solid var(--border);cursor:pointer;transition:background .08s;user-select:none}
 .list-row:hover{background:var(--surf2)}.list-row.sel{background:#1a2840}
 .list-row.bm td:first-child::before,.list-row.bm .lc:first-child::before{content:"★ ";color:var(--yellow)}
+/* A row you have written about is worth spotting in a list of 130,000. */
+.list-row.noted .lc:first-child::after{content:" 📝";font-size:10px}
+.gcell.bm .gname::before{content:"★ ";color:var(--yellow)}
+.gcell.noted .gname::after{content:" 📝";font-size:9px}
 
 /* Bundle rows */
 .list-row.bundle-row{grid-template-columns:1fr 120px 60px 50px}
@@ -328,7 +332,16 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
   body.sidebar-open #sidebar{transform:none}
   body.sidebar-open #side-scrim{display:block;position:absolute;inset:0;z-index:35;
     background:rgba(0,0,0,.5)}
-  #preview{position:absolute;inset:0;width:auto;z-index:45;border-left:none}
+  /* On a wide screen the picture staying put while the details scroll beside
+     it is useful. On a phone the preview is the whole screen, so a pinned
+     picture and a pinned block of facts ate most of it and the notes and
+     dependencies underneath were left scrolling in a sliver. Here the panel
+     is one scroller: only the name stays put, everything else scrolls. */
+  #preview{position:absolute;inset:0;width:auto;z-index:45;border-left:none;overflow-y:auto}
+  #ph{position:sticky;top:0;z-index:2;background:var(--surf)}
+  #pmeta,#pview,#prender,#pbody{flex:0 0 auto;overflow:visible}
+  #prender img{max-height:40vh}
+  #prender pre{max-height:50vh}
 }
 
 @media (max-width:560px){
@@ -433,8 +446,13 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
     <div class="fg" id="sb-bonly">
       <div class="ft">Filters</div>
       <label class="fck"><input type="checkbox" id="f-id" onchange="af()"> Identified only <span class="cnt" id="fc-id">0</span></label>
+    </div>
+    <!-- These work on both tabs: bundles you marked while browsing bundles,
+         assets you marked while browsing assets. -->
+    <div class="fg" id="sb-marks">
+      <div class="ft">Your marks <span class="ft-clear" id="mark-scope" style="cursor:default">bundles</span></div>
       <label class="fck"><input type="checkbox" id="f-bm" onchange="af()"> ★ Bookmarked <span class="cnt" id="fc-bm">0</span></label>
-      <label class="fck"><input type="checkbox" id="f-nt" onchange="af()"> Has notes <span class="cnt" id="fc-nt">0</span></label>
+      <label class="fck"><input type="checkbox" id="f-nt" onchange="af()"> 📝 Has notes <span class="cnt" id="fc-nt">0</span></label>
     </div>
     <div class="fg">
       <div class="ft">Your data</div>
@@ -466,6 +484,9 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
       <span id="bc-sep">›</span>
       <span id="bc-current"></span>
       <span id="bc-hash"></span>
+      <button class="tbtn" id="bc-notes" onclick="openBundleNotes()"
+        title="Bookmark this bundle or write a note about it"
+        style="margin-left:auto;flex-shrink:0">★ Bundle notes</button>
     </div>
 
     <!-- Toolbar -->
@@ -630,6 +651,8 @@ let activeTypes = new Set();
 let selRow     = null;
 let selBundle  = null;  // bundle selected for bookmark/notes context
 let selAssetKey = null; // "bundlehash::path_id"
+let previewB   = null;  // what the open preview is showing, for its notes
+let previewA   = null;
 
 let searchTimer = null;
 let serverOn    = false;
@@ -646,8 +669,52 @@ let cursor      = -1;     // keyboard position within `filtered`
 let selMode     = false;  // checkboxes on, for picking several
 let picked      = new Map();  // key -> {bundle, asset|null}; asset null = whole bundle
 
+// Bookmarks and notes hang off a key. A bundle is its filename; one asset is
+// "<filename>::<path_id>", the same key the asset index and the selection
+// already use. Both live in the same two stores, so anything saved before
+// this still loads: it simply has no "::" in it and counts as a bundle.
 let bookmarks = new Set(JSON.parse(localStorage.getItem("pm_bm") || "[]"));
 let notes     = JSON.parse(localStorage.getItem("pm_notes") || "{}");
+
+const isAssetKey = k => k.includes("::");
+function markKey(b, a) { return a ? b.filename + "::" + a.path_id : b.filename; }
+function hasNote(b, a) { return !!notes[markKey(b, a)]; }
+function isBookmarked(b, a) { return bookmarks.has(markKey(b, a)); }
+
+function saveMarks() {
+  try {
+    localStorage.setItem("pm_bm", JSON.stringify([...bookmarks]));
+    localStorage.setItem("pm_notes", JSON.stringify(notes));
+  } catch (e) {
+    alert("Could not save to this browser's storage — your bookmarks and notes "
+        + "will not survive a reload.");
+  }
+}
+
+// The sidebar counts describe whichever tab you are on: bundles you have
+// marked while browsing bundles, assets while browsing assets.
+function refreshMarkCounts() {
+  // Inside a bundle the filters narrow that bundle's assets, so count only
+  // the ones that are actually in it.
+  const prefix = inBundle ? inBundle.filename + "::" : null;
+  let bundleBm = 0, assetBm = 0, bundleNt = 0, assetNt = 0;
+  bookmarks.forEach(k => {
+    if (!isAssetKey(k)) { bundleBm++; return; }
+    if (!prefix || k.startsWith(prefix)) assetBm++;
+  });
+  Object.keys(notes).forEach(k => {
+    if (!notes[k]) return;
+    if (!isAssetKey(k)) { bundleNt++; return; }
+    if (!prefix || k.startsWith(prefix)) assetNt++;
+  });
+
+  const onAssets = !!inBundle || activeTab === "assets";
+  setText("fc-bm", onAssets ? assetBm : bundleBm);
+  setText("fc-nt", onAssets ? assetNt : bundleNt);
+  setText("s-bm", bookmarks.size);
+  const what = document.getElementById("mark-scope");
+  if (what) what.textContent = inBundle ? "in this bundle" : (onAssets ? "assets" : "bundles");
+}
 
 // Asset lookup by key for preview
 const assetMap = new Map(); // "bundlehash::path_id" → {bundle, asset}
@@ -854,8 +921,8 @@ function initCatalog() {
   setText("s-i",  id.toLocaleString());
   setText("s-a",  tot.toLocaleString());
   setText("s-c",  Object.keys(catC).length);
-  setText("s-bm", bookmarks.size);
-  setText("fc-id", id); setText("fc-bm", bookmarks.size); setText("fc-nt", Object.keys(notes).length);
+  setText("fc-id", id);
+  refreshMarkCounts();
   setText("tc-b", catalog.length.toLocaleString());
   setText("tc-a", tot.toLocaleString());
   document.getElementById("stats").style.display = "flex";
@@ -981,6 +1048,11 @@ function switchTab(t) {
   activeCats.clear(); activeTypes.clear();
   document.querySelectorAll(".cat-chip").forEach(c => c.classList.remove("on"));
   document.querySelectorAll("#type-list input").forEach(c => c.checked = false);
+  // The mark filters mean something different on each tab, so leaving one
+  // ticked across a switch would silently filter by the wrong thing.
+  document.getElementById("f-bm").checked = false;
+  document.getElementById("f-nt").checked = false;
+  refreshMarkCounts();
   closePreview(); af();
 }
 
@@ -1002,6 +1074,10 @@ async function enterBundle(b) {
   document.getElementById("sb-bonly").style.display = "none";
   document.getElementById("sb-cats").style.display  = "none";
   document.getElementById("btn-zip").style.display = serverOn ? "" : "none";
+  // Inside a bundle the marks are the assets', not the bundles'.
+  document.getElementById("f-bm").checked = false;
+  document.getElementById("f-nt").checked = false;
+  refreshMarkCounts();
   af();
   if (serverOn) loadLiveAssets(b);
 }
@@ -1030,6 +1106,9 @@ function exitBundle() {
   document.getElementById("search").placeholder = "Search bundles — name, hash, asset name, path…";
   document.getElementById("sb-bonly").style.display = "flex";
   document.getElementById("sb-cats").style.display  = "flex";
+  document.getElementById("f-bm").checked = false;
+  document.getElementById("f-nt").checked = false;
+  refreshMarkCounts();
   closePreview();
   page = outerPage || 1;
   af(true);
@@ -1055,11 +1134,18 @@ function af(keepPage) {
   const sk = document.getElementById("sort-sel").value;
   const tk = document.getElementById("type-sel").value;
 
+  // The two mark filters follow you: inside a bundle and on the asset tab
+  // they narrow to assets you starred or wrote about, not bundles.
+  const bmo = document.getElementById("f-bm").checked;
+  const nto = document.getElementById("f-nt").checked;
+
   // ── Inside a bundle: show its assets ──────────────
   if (inBundle) {
     let assets = inBundle.assets || [];
     if (q) assets = assets.filter(a => (a.name || "").toLowerCase().includes(q) || a.type.toLowerCase().includes(q) || String(a.path_id).includes(q));
     if (activeTypes.size) assets = assets.filter(a => activeTypes.has(a.type));
+    if (bmo) assets = assets.filter(a => bookmarks.has(markKey(inBundle, a)));
+    if (nto) assets = assets.filter(a => notes[markKey(inBundle, a)]);
     filtered = visualFirst(assets, () => inBundle);
     renderAssets(filtered);
     setHead("asset");
@@ -1073,6 +1159,8 @@ function af(keepPage) {
       if (tk && a.type !== tk) return false;
       if (activeTypes.size && !activeTypes.has(a.type)) return false;
       if (activeCats.size && !activeCats.has(a.bcat)) return false;
+      if (bmo && !bookmarks.has(a.key)) return false;
+      if (nto && !notes[a.key]) return false;
       if (q) {
         const h = [a.name, a.type, a.bundle, a.bname, a.bcat].join(" ").toLowerCase();
         if (!h.includes(q)) return false;
@@ -1093,8 +1181,6 @@ function af(keepPage) {
 
   // ── Bundle tab ────────────────────────────────────
   const ido = document.getElementById("f-id").checked;
-  const bmo = document.getElementById("f-bm").checked;
-  const nto = document.getElementById("f-nt").checked;
 
   filtered = catalog.filter(b => {
     if (ido && !b.derived_name) return false;
@@ -1216,7 +1302,9 @@ function renderGrid(rows, bundleOf) {
     const a = row.asset || row;
     const key = b.filename + "::" + a.path_id;
     const cell = document.createElement("div");
-    cell.className = "gcell" + (selAssetKey === key ? " sel" : "");
+    cell.dataset.key = key;
+    cell.className = "gcell" + (selAssetKey === key ? " sel" : "")
+      + (bookmarks.has(key) ? " bm" : "") + (notes[key] ? " noted" : "");
     const thumb = webMode ? thumbURL(b, a)
       : (serverOn && PREV_TYPES[a.type] === "image"
           ? apiURL("/api/preview", { bundle: b.filename, path_id: a.path_id })
@@ -1302,7 +1390,8 @@ function renderBundleGrid(list) {
     const thumb = bundleThumb(b);
     const cell = document.createElement("div");
     cell.className = "gcell" + (selBundle === b ? " sel" : "")
-      + (cursor === start + i ? " cursor" : "");
+      + (cursor === start + i ? " cursor" : "")
+      + (bookmarks.has(b.filename) ? " bm" : "") + (notes[b.filename] ? " noted" : "");
     cell.dataset.hash = b.filename;
     cell.innerHTML = `
       <div class="gthumb">${thumb
@@ -1334,7 +1423,8 @@ function renderBundles(list) {
     const row  = document.createElement("div");
     const c    = cc(b.category || "Unknown");
     const prev = (b.all_asset_names || []).slice(0, 6).join("  ·  ");
-    row.className = "list-row bundle-row" + (bookmarks.has(b.filename) ? " bm" : "") + (selBundle === b ? " sel" : "");
+    row.className = "list-row bundle-row" + (bookmarks.has(b.filename) ? " bm" : "")
+      + (notes[b.filename] ? " noted" : "") + (selBundle === b ? " sel" : "");
     row.dataset.hash = b.filename;
     row.innerHTML = `
       <div class="lc">
@@ -1372,7 +1462,8 @@ function renderAssets(assets) {
   slice.forEach(a => {
     const key = inBundle.filename + "::" + a.path_id;
     const row = document.createElement("div");
-    row.className = "list-row asset-row" + (selAssetKey === key ? " sel" : "");
+    row.className = "list-row asset-row" + (selAssetKey === key ? " sel" : "")
+      + (bookmarks.has(key) ? " bm" : "") + (notes[key] ? " noted" : "");
     row.dataset.key = key;
 
     row.innerHTML = `
@@ -1411,7 +1502,8 @@ function renderFlat(list) {
   const el = document.getElementById("list"); el.innerHTML = "";
   slice.forEach(a => {
     const row = document.createElement("div");
-    row.className = "list-row flat-row" + (selAssetKey === a.key ? " sel" : "");
+    row.className = "list-row flat-row" + (selAssetKey === a.key ? " sel" : "")
+      + (bookmarks.has(a.key) ? " bm" : "") + (notes[a.key] ? " noted" : "");
     row.dataset.key = a.key;
     const c = cc(a.bcat);
     row.innerHTML = `
@@ -1479,17 +1571,32 @@ function openPreview(b, a, doFetch = false) {
     <div class="mi"><div class="mk">Bundle Assets</div><div class="mv">${b.asset_count || 0}</div></div>
   `;
 
-  // Body: actions, bookmark, notes, context
-  const isBm = bookmarks.has(b.filename);
+  // Body: actions, then marks for this asset and for the bundle holding it.
+  // Both are offered wherever you are, because which one you want depends on
+  // what you are recording, not on which tab you came in from.
+  previewB = b; previewA = a;
+  const assetBm  = isBookmarked(b, a);
+  const bundleBm = isBookmarked(b, null);
   const inBundleView = !!inBundle;
+  const assetLabel = a.name || `path_id ${a.path_id}`;
   let body = assetActions(b, a) + `
-    <button class="bmark-btn ${isBm ? "on" : ""}" id="bmark-btn" onclick="toggleBm()">
-      ${isBm ? "★ Bundle Bookmarked" : "☆ Bookmark Bundle"}
-    </button>
     <div>
-      <div class="ds-title">Modder Notes (on bundle)</div>
-      <textarea class="notes-area" id="d-notes" placeholder="Notes on this bundle…">${notes[b.filename] || ""}</textarea>
-      <button class="notes-save" onclick="saveNote()">Save Note</button>
+      <div class="ds-title">This asset — ${esc(assetLabel)}</div>
+      <button class="bmark-btn ${assetBm ? "on" : ""}" id="bmark-asset" onclick="toggleBm('asset')">
+        ${assetBm ? "★ Asset bookmarked" : "☆ Bookmark this asset"}
+      </button>
+      <textarea class="notes-area" id="note-asset" style="margin-top:5px"
+        placeholder="Notes on this asset…">${esc(notes[markKey(b, a)] || "")}</textarea>
+      <button class="notes-save" onclick="saveNote('asset')">Save asset note</button>
+    </div>
+    <div>
+      <div class="ds-title">Its bundle — ${esc(b.derived_name || b.filename)}</div>
+      <button class="bmark-btn ${bundleBm ? "on" : ""}" id="bmark-bundle" onclick="toggleBm('bundle')">
+        ${bundleBm ? "★ Bundle bookmarked" : "☆ Bookmark this bundle"}
+      </button>
+      <textarea class="notes-area" id="note-bundle" style="margin-top:5px"
+        placeholder="Notes on the whole bundle…">${esc(notes[markKey(b, null)] || "")}</textarea>
+      <button class="notes-save" onclick="saveNote('bundle')">Save bundle note</button>
     </div>
   `;
 
@@ -1606,10 +1713,50 @@ async function fetchPreview(b, asset, prender) {
   }
 }
 
+// The bundle's own bookmark and note, without having to open one of its
+// assets first — which also means a bundle holding nothing you can preview
+// can still be written about.
+function openBundleNotes() {
+  const b = inBundle || selBundle;
+  if (!b) return;
+  previewB = b; previewA = null;
+
+  document.getElementById("preview").classList.add("open");
+  setText("ph-type", "Bundle");
+  setText("ph-name", b.derived_name || "(unnamed bundle)");
+  document.getElementById("ph-name").style.color = b.derived_name ? "var(--text)" : "var(--muted)";
+  document.getElementById("ph-bundle").textContent = b.filename;
+
+  const c = cc(b.category || "Unknown");
+  document.getElementById("pmeta").innerHTML = `
+    <div class="mi"><div class="mk">Category</div><div class="mv" style="color:${c.dot}">${esc(b.category || "Unknown")}</div></div>
+    <div class="mi"><div class="mk">Assets</div><div class="mv">${b.asset_count || 0}</div></div>
+    <div class="mi"><div class="mk">Size</div><div class="mv">${esc(b.size_human || "?")}</div></div>
+    <div class="mi"><div class="mk">Where it lives</div><div class="mv">${esc(ORIGIN_LABEL[originOf(b)] || "?")}</div></div>
+  `;
+
+  const on = isBookmarked(b, null);
+  document.getElementById("pbody").innerHTML = `
+    <div>
+      <div class="ds-title">This bundle</div>
+      <button class="bmark-btn ${on ? "on" : ""}" id="bmark-bundle" onclick="toggleBm('bundle')">
+        ${on ? "★ Bundle bookmarked" : "☆ Bookmark this bundle"}
+      </button>
+      <textarea class="notes-area" id="note-bundle" style="margin-top:5px"
+        placeholder="Notes on the whole bundle…">${esc(notes[markKey(b, null)] || "")}</textarea>
+      <button class="notes-save" onclick="saveNote('bundle')">Save bundle note</button>
+    </div>
+  ` + dependencyPanel(b);
+
+  document.getElementById("prender").innerHTML =
+    `<div class="pmsg">Open an asset to preview it and to note that asset on its own.</div>`;
+}
+
 function closePreview() {
   document.getElementById("preview").classList.remove("open");
   if (selRow) { selRow.classList.remove("sel"); selRow = null; }
   selAssetKey = null;
+  previewB = null; previewA = null;
   // Stop audio
   const au = document.querySelector("#prender audio"); if (au) { au.pause(); au.src = ""; }
 }
@@ -1630,29 +1777,62 @@ function jumpToBundle(hash) {
 // ══════════════════════════════════════════════════════
 // BOOKMARK & NOTES
 // ══════════════════════════════════════════════════════
-function toggleBm() {
-  if (!selBundle) return;
-  const fn = selBundle.filename;
-  if (bookmarks.has(fn)) bookmarks.delete(fn); else bookmarks.add(fn);
-  localStorage.setItem("pm_bm", JSON.stringify([...bookmarks]));
-  setText("s-bm", bookmarks.size); setText("fc-bm", bookmarks.size);
-  const btn = document.getElementById("bmark-btn");
-  if (btn) { const on = bookmarks.has(fn); btn.textContent = on ? "★ Bundle Bookmarked" : "☆ Bookmark Bundle"; btn.className = "bmark-btn" + (on ? " on" : ""); }
-  // Refresh row class
-  const row = document.querySelector(`.bundle-row[data-hash="${fn}"]`);
-  if (row) { if (bookmarks.has(fn)) row.classList.add("bm"); else row.classList.remove("bm"); }
+// Whichever of the two the button belongs to: "asset" marks the one you are
+// looking at, "bundle" marks the file it came out of.
+function toggleBm(scope) {
+  if (!previewB) return;
+  const forAsset = scope === "asset";
+  if (forAsset && !previewA) return;
+  const key = markKey(previewB, forAsset ? previewA : null);
+
+  if (bookmarks.has(key)) bookmarks.delete(key); else bookmarks.add(key);
+  saveMarks();
+  refreshMarkCounts();
+
+  const on = bookmarks.has(key);
+  const btn = document.getElementById(forAsset ? "bmark-asset" : "bmark-bundle");
+  if (btn) {
+    btn.textContent = forAsset
+      ? (on ? "★ Asset bookmarked" : "☆ Bookmark this asset")
+      : (on ? "★ Bundle bookmarked" : "☆ Bookmark this bundle");
+    btn.className = "bmark-btn" + (on ? " on" : "");
+  }
+  paintMarks();
 }
 
-function saveNote() {
-  if (!selBundle) return;
-  const fn = selBundle.filename;
-  const txt = document.getElementById("d-notes").value.trim();
-  if (txt) notes[fn] = txt; else delete notes[fn];
-  localStorage.setItem("pm_notes", JSON.stringify(notes));
-  setText("fc-nt", Object.keys(notes).length);
-  const btn = document.querySelector(".notes-save"); if (!btn) return;
-  btn.textContent = "✓ Saved"; btn.style.color = "var(--green)";
-  setTimeout(() => { btn.textContent = "Save Note"; btn.style.color = ""; }, 1500);
+function saveNote(scope) {
+  if (!previewB) return;
+  const forAsset = scope === "asset";
+  if (forAsset && !previewA) return;
+  const key = markKey(previewB, forAsset ? previewA : null);
+  const box = document.getElementById(forAsset ? "note-asset" : "note-bundle");
+  if (!box) return;
+
+  const txt = box.value.trim();
+  if (txt) notes[key] = txt; else delete notes[key];
+  saveMarks();
+  refreshMarkCounts();
+
+  const btn = box.parentElement.querySelector(".notes-save");
+  if (btn) {
+    const was = btn.textContent;
+    btn.textContent = "✓ Saved"; btn.style.color = "var(--green)";
+    setTimeout(() => { btn.textContent = was; btn.style.color = ""; }, 1500);
+  }
+  paintMarks();
+}
+
+// Put the star on, or take it off, the rows already on screen, without
+// rebuilding the list and losing your place.
+function paintMarks() {
+  document.querySelectorAll("[data-hash]").forEach(row => {
+    row.classList.toggle("bm", bookmarks.has(row.dataset.hash));
+    row.classList.toggle("noted", !!notes[row.dataset.hash]);
+  });
+  document.querySelectorAll("[data-key]").forEach(row => {
+    row.classList.toggle("bm", bookmarks.has(row.dataset.key));
+    row.classList.toggle("noted", !!notes[row.dataset.key]);
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -2471,9 +2651,7 @@ function restoreMyData(file) {
       localStorage.setItem("pm_bm", JSON.stringify([...bookmarks]));
       localStorage.setItem("pm_notes", JSON.stringify(notes));
     } catch (e) { alert("Could not save to this browser's storage."); }
-    setText("s-bm", bookmarks.size);
-    setText("fc-bm", bookmarks.size);
-    setText("fc-nt", Object.keys(notes).length);
+    refreshMarkCounts();
     af(true);
     alert(`Restored. Bookmarks ${beforeB} → ${bookmarks.size}, `
         + `notes ${beforeN} → ${Object.keys(notes).length}.`);

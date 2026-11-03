@@ -1,4 +1,4 @@
-# v1.2 — Works on a phone, and a real zip online
+# v1.2 — Works on a phone, notes per asset, and a real zip online
 
 Look inside every asset bundle in *Pocket Mortys*, export anything you find,
 and put your own version back in.
@@ -52,6 +52,29 @@ now **writes a proper zip itself** — no library, nothing to install:
   instead of telling you it cannot.
 - Progress is shown while it fetches, and anything that fails is reported
   rather than silently missing.
+
+### Notes on assets, not just bundles
+
+A note used to belong to a whole bundle, which is the wrong size when the
+thing worth remembering is one sprite out of two hundred.
+
+- **Every asset can be bookmarked and noted on its own**, alongside the
+  bundle's own bookmark and note. Both are in the preview, clearly separated.
+- **The two filters follow the tab.** On **Bundles** they narrow to bundles
+  you marked; on **All Assets** to assets you marked; inside a bundle, to
+  marked assets in that bundle. The sidebar says which it is counting.
+- A starred row shows ★ and a noted row shows 📝, in both views.
+- **★ Bundle notes** in the breadcrumb opens a bundle's own note without
+  having to pick an asset first.
+- Anything you saved before still loads, and Save/Restore carries both kinds.
+
+### The preview scrolls properly on a phone
+
+The picture was pinned while only the details beneath it scrolled, so on a
+phone — where the preview fills the screen — the notes and dependencies were
+left moving in a sliver. The panel is now one scroller on narrow screens,
+with only the asset's name staying put. On a desktop the picture still stays
+in view beside the details, which is the useful behaviour there.
 
 ### Fixes
 
