@@ -68,6 +68,7 @@ Managed/
 *.jks
 secrets.json
 .claude/settings.local.json
+tools/upload_r2.py
 
 # ─────────────────────────────────────────────────────────────────────
 #  Python
